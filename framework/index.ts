@@ -7,3 +7,4 @@ export type { Engine, Health, HealthState, Metrics, SharedMap, Trace } from "./r
 export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
 export type { AppDefinition, TableSchema } from "./runtime/definition";
 export { appNames } from "./runtime/names";
+export type { Register } from "./data/schema";
