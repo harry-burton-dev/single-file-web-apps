@@ -9,7 +9,9 @@
     "build:app": "vite build --mode app",
     "test": "node --test \"test/**/*.test.js\"",
     "smoke": "node scripts/smoke.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release": "node scripts/release.js",
+    "keygen": "node scripts/keygen.js"
   },
   "keywords": [],
   "author": "",
