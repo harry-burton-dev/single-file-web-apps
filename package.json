@@ -9,8 +9,9 @@
   "scripts": {
     "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\"",
     "typecheck": "tsc --noEmit -p framework && tsc --noEmit -p app",
-    "build": "npm run build:bootstrap && npm run build:app && npm run size",
+    "build": "npm run build:bootstrap && npm run build:app && npm run build:admin && npm run size",
     "build:app": "vite build --config framework/build/vite.config.js --mode app",
+    "build:admin": "vite build --config framework/build/vite.config.js --mode admin",
     "build:bootstrap": "vite build --config framework/build/vite.config.js --mode bootstrap",
     "size": "node framework/build/size-budget.js",
     "dev": "vite --config framework/build/vite.config.js",
