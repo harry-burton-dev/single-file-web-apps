@@ -26,21 +26,23 @@ Build with **Vite**. Ship a **tiny bootstrap page** that loads the **real app as
 
 | Output | Built as | Changes |
 |---|---|---|
-| `workbench.html` (bootstrap) | Single HTML file (`vite-plugin-singlefile`), holding only the loader and the public signing key | Rarely. Updating it is the one thing that needs manual redistribution. |
-| `app-<version>.js` (app bundle) | One ES module, styles included | Every release |
+| `<id>.html` (bootstrap) | Single HTML file (`vite-plugin-singlefile`), holding only the loader and the public signing key | Rarely. Updating it is the one thing that needs manual redistribution. |
+| `<id>-<version>.js` (app bundle) | One ES module, styles included | Every release |
 | `admin.html` (admin app) | Single HTML file, standalone, not loaded through the loader | Every release. It must work when everything else is broken. |
 
 Everything is bundled; nothing is fetched from the network at run time. No WebAssembly dependencies. Size budget: bootstrap under 50 KB, app bundle under 500 KB (engine with Yjs is 110 KB today).
 
 ### 2. Folder layout
 
+`<id>` and `<name>` are the app's id and name from `app/app.config.ts`; for the example app, `trellis-example` and `Trellis Example`.
+
 ```
-Workbench/
-  workbench.html
+<name>/
+  <id>.html
   app/
     manifest.json
-    app-1.4.0.js
-    app-1.3.2.js
+    <id>-1.4.0.js
+    <id>-1.3.2.js
   plugins/
   data/  status/  backups/
 ```
@@ -79,7 +81,7 @@ The loader keeps the two most recent verified bundles. Opening the page with `#p
 
 ### 6. Loader contract
 
-As built (contract 1, `workbench/src/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `WORKBENCH_PUBLIC_KEY` or `workbench/signing-public-key.json`; the build fails without one.
+As built (contract 1, `framework/runtime/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `TRELLIS_PUBLIC_KEY` or `app/signing-public-key.json`; the build fails without one.
 
 The bundle exports one entry function, called with the loader's services (folder connection, cache, update check, bootstrap version). The contract has a version number; the manifest states the minimum bootstrap each bundle needs, and the loader refuses a bundle it is too old for with a clear message.
 
@@ -87,11 +89,15 @@ The bundle exports one entry function, called with the loader's services (folder
 
 | Path | Role |
 |---|---|
-| `sync-engine/` | Engine, record layer, simulator and tests. Plain ES modules, no build step. |
-| `workbench/` | App, loader and Vite configuration. |
-| `masters/` | The HTML entry pages Vite builds from. |
+| `framework/engine/` | Engine, record layer, simulator and tests. Plain ES modules, no build step. |
+| `framework/runtime/` | Host, loader, bootstrap, the app definition types and the derived names (`names.ts`), and their tests. |
+| `framework/build/` | Vite configuration, release, smoke test and key generation scripts. |
+| `app/` | The app: `app.config.ts`, the one place its id, name and tables are declared, and its source in `app/src/`. Imports only `@trellis/framework`. |
+| `masters/` | The HTML entry pages Vite builds from: `bootstrap.html` and `dev.html`. |
 
-`npm run dev` serves the app directly from `localhost` (`masters/workbench-dev.html`), without the loader, for quick iteration. A page on `localhost` does not behave exactly like one opened from disk, so behaviour is judged on the built files.
+One npm workspace root holds `framework` and `app`, with one lockfile; every command runs from the root.
+
+`npm run dev` serves the app directly from `localhost` (`masters/dev.html`), without the loader, for quick iteration. A page on `localhost` does not behave exactly like one opened from disk, so behaviour is judged on the built files.
 
 ### 8. Release ("minting")
 
@@ -105,11 +111,11 @@ The bundle exports one entry function, called with the loader's services (folder
 
 Until the admin app exists, a release is produced by GitHub Actions, not by the admin app:
 
-- **CI** (`.github/workflows/ci.yml`): on every pull request and push to `main`, runs the engine tests, the workbench typecheck and tests, and builds the app bundle.
-- **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `workbench-1.2.0.zip`. The zip is the `Workbench/` folder of section 2, ready to copy into the shared folder.
-- **Keys:** `node scripts/keygen.js` (in `workbench/`) prints a key pair. The public key is the repository variable `WORKBENCH_PUBLIC_KEY`; the private key is the repository secret `WORKBENCH_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
+- **CI** (`.github/workflows/ci.yml`): on every pull request and push to `main`, runs `npm ci`, `npm test` (engine and runtime tests), `npm run typecheck` and `npm run build:app` from the root.
+- **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `<id>-1.2.0.zip`. The zip is the `<name>/` folder of section 2, ready to copy into the shared folder. `framework/build/release.js` writes the folder, zip name and release title to the workflow's outputs, so the workflow holds no app name.
+- **Keys:** `npm run keygen` (`framework/build/keygen.js`) prints a key pair. The public key is the repository variable `TRELLIS_PUBLIC_KEY`; the private key is the repository secret `TRELLIS_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
 - **Serial:** the build time in seconds.
-- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag. The adversarial probes (`npm run probes` in `sync-engine/`) are not part of CI; three of them still fail.
+- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag. The adversarial probes (`npm run probes`) are not part of CI; three of them still fail.
 
 ## Options Considered
 
@@ -143,7 +149,7 @@ Until the admin app exists, a release is produced by GitHub Actions, not by the 
 - A module can be run from a Blob URL.
 - SHA-256 hashing and ECDSA signature verification work.
 
-- The built bootstrap, opened from disk, verifies a signed manifest and bundle, caches the bundle in IndexedDB, runs it from a Blob URL, starts from the cache on reload, and refuses a manifest signed with another key (`npm run smoke`). Sizes: bootstrap 9 KB, app bundle 409 KB.
+- The built bootstrap, opened from disk, verifies a signed manifest and bundle, caches the bundle in IndexedDB, runs it from a Blob URL, starts from the cache on reload, and refuses a manifest signed with another key (`npm run smoke`). Sizes: bootstrap 9 KB, app bundle 405 KB.
 
 **Not yet verified**
 
@@ -152,7 +158,7 @@ Until the admin app exists, a release is produced by GitHub Actions, not by the 
 
 ## Action Items
 
-1. [x] Build the bootstrap and loader, with tests for every verification failure path (`workbench/src/loader/`, `workbench/src/bootstrap/`, `workbench/test/loader/`).
+1. [x] Build the bootstrap and loader, with tests for every verification failure path (`framework/runtime/loader/`, `framework/runtime/bootstrap/`, `framework/runtime/test/loader.test.js`).
 2. [ ] Add the three Vite build targets. Done: `bootstrap` and `app` (`npm run build`). The `admin` target waits for the admin app (item 3).
 3. [ ] Add key generation, backup and "publish release" to the admin app.
 4. [x] Script the from-disk smoke test so a failed check fails the release (`npm run smoke`).
