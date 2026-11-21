@@ -17,7 +17,10 @@
 // Persistence: finished traces are written to the local store in segments of
 // `persistBatch` traces (one store write per batch, appended, never
 // rewritten), and the oldest segments are deleted so at most about
-// `storeLimit` traces remain. A restart reloads them.
+// `storeLimit` traces remain. A restart reloads them. Routine traces (a
+// scheduled scan or status write with outcome "ok" and no apply, delete or
+// error) are kept in memory and emitted but never stored, so an idle device
+// does not write to its store.
 
 export const TRACE_LEVELS = Object.freeze(["off", "summary", "full"]);
 const SEGMENT_PREFIX = "trace/seg/";
@@ -37,6 +40,10 @@ export function partsOfPath(path) {
   if (p[0] === "status" && p.length === 2) return { table: null, device: p[1].replace(/\.ywb$/, "") };
   return { table: null, device: null };
 }
+
+/** A scheduled scan or status write that went fine and changed nothing: kept in memory, never stored. */
+const isRoutine = (t) =>
+  t.reason === "scheduled" && t.outcome === "ok" && (t.kind === "scan" || t.kind === "status") && !t.counts.apply && !t.counts.delete && !t.counts.errors;
 
 export function createTracer({ clock, timer, store, deviceId, user, options, emit, onSample, onStoreError }) {
   let level = options.level;
@@ -67,7 +74,7 @@ export function createTracer({ clock, timer, store, deviceId, user, options, emi
   function retain(trace) {
     ring.push(trace); // internal bounded buffers, mutated in place (hot path)
     if (ring.length > options.memoryLimit) ring.splice(0, ring.length - options.memoryLimit);
-    batch.push(trace);
+    if (!isRoutine(trace)) batch.push(trace);
     emit("trace", trace);
   }
 
