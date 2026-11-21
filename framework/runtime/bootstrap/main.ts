@@ -1,4 +1,4 @@
-// The bootstrap (ADR-0005 section 5): the only code in workbench.html. It runs
+// The bootstrap (ADR-0005 section 5): the only code in the bootstrap page. It runs
 // the last bundle it verified, or asks for the shared folder on a first run,
 // and accepts new bundles only through the signed manifest. Kept small and
 // free of the app's libraries: a mistake here needs the file handed out again.
@@ -7,8 +7,10 @@ import { openDb, type KeyValueDb } from "../host/idb";
 import { cachedBundle, checkForUpdate } from "../loader/loader.js";
 import { importPublicKey } from "../loader/manifest.js";
 import { BOOTSTRAP_VERSION, type LoaderServices, type UpdateResult } from "../loader/contract";
+import { appNames } from "../names";
 
-const DB_NAME = "workbench";
+// The app's id and name come from the build (__APP__), not from the app's config.
+const names = appNames(__APP__);
 const RECHECK_MS = 15 * 60 * 1000;
 const previous = location.hash === "#previous";
 const safe = location.hash === "#safe";
@@ -36,7 +38,7 @@ function notice(text: string, action?: { label: string; run: () => void }): void
 }
 
 async function boot(): Promise<void> {
-  const db = await openDb(DB_NAME);
+  const db = await openDb(names.database);
   const publicKey = await importPublicKey(__SIGNING_PUBLIC_KEY__, crypto.subtle);
   const check = (root: FileSystemDirectoryHandle): Promise<UpdateResult> =>
     checkForUpdate({ root, cache: db, publicKey, subtle: crypto.subtle, bootstrapVersion: BOOTSTRAP_VERSION }) as Promise<UpdateResult>;
@@ -72,12 +74,12 @@ function firstRun(
   db: KeyValueDb,
   check: (root: FileSystemDirectoryHandle) => Promise<UpdateResult>,
   run: (bundle: { version: string; bytes: Uint8Array }) => Promise<void>,
-  opening = "Connect the shared Workbench folder to load the app.",
+  opening = `Connect the shared ${names.title} folder to load the app.`,
 ): HTMLElement {
   const box = element("div", "", "boot");
   const message = element("p", opening, "boot-message");
   const button = element("button", "Choose the shared folder", "boot-connect");
-  box.append(element("h1", "Workbench"), message, button);
+  box.append(element("h1", names.title), message, button);
   let folder: FolderState = { status: "none" };
   void loadFolder(db).then((found) => {
     folder = found;
@@ -86,7 +88,7 @@ function firstRun(
   button.addEventListener("click", () => {
     void (async () => {
       try {
-        folder = folder.status === "none" ? await pickFolder(db, DB_NAME) : folder.status === "needs-permission" ? await regrant(folder.handle) : folder;
+        folder = folder.status === "none" ? await pickFolder(db, names.folderPicker) : folder.status === "needs-permission" ? await regrant(folder.handle) : folder;
         if (folder.status !== "ready") return;
         const result = await check(folder.handle);
         const bundle = await cachedBundle(db);
@@ -103,5 +105,5 @@ function firstRun(
 }
 
 boot().catch((error: unknown) => {
-  app.replaceChildren(element("p", `Workbench could not start: ${error instanceof Error ? error.message : String(error)}`, "boot-message"));
+  app.replaceChildren(element("p", `${names.title} could not start: ${error instanceof Error ? error.message : String(error)}`, "boot-message"));
 });
