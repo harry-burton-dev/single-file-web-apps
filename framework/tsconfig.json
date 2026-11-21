@@ -15,5 +15,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "runtime", "data"]
+  "include": ["index.ts", "runtime", "data", "react"]
 }

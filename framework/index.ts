@@ -8,7 +8,23 @@ export type { Engine, Health, HealthState, Metrics, SharedMap, Trace } from "./r
 export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
 export type { AppDefinition, TableSchema } from "./runtime/definition";
 export { appNames } from "./runtime/names";
-export type { Register } from "./data/schema";
+export type { Register, Row, RowOf, Candidate } from "./data/schema";
+export type { Query } from "./data/select";
+export type { Conflict } from "./data/conflicts";
+export { defineCommand, type CommandDef, type CommandResult, type Change, type Tx } from "./data/commands";
+export { createData, type Data } from "./data/runtime";
+export {
+  DataProvider,
+  useRecords,
+  useRecord,
+  useField,
+  useCommand,
+  useConflicts,
+  useResolveConflict,
+  resolveConflict,
+  type FieldState,
+  type BuiltinCommands,
+} from "./react/hooks";
 export { enrol, unlock, PassportError } from "./runtime/identity/passport.js";
 export { KeyFileError } from "./runtime/identity/keyfile.js";
 export type { Identity } from "./runtime/identity/types";
