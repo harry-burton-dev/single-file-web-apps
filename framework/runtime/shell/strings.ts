@@ -45,13 +45,51 @@ export interface ShellStrings {
   errorTitle: string;
   openDiagnostics: string;
 
+  // The first-run flow (OUT-36).
+  /** Shown when the error has no message written for the user. */
+  unexpectedError: string;
+  storageUnavailable: string;
+  chooseFolder: string;
+  reconnectTo: (folder: string) => string;
+  folderRefused: string;
+  passportIntro: (app: string) => string;
+  haveInvite: string;
+  havePassport: string;
+  inviteFile: string;
+  invitePassphrase: string;
+  newPassphrase: string;
+  confirmPassphrase: string;
+  openInvite: string;
+  openingInvite: string;
+  cancel: string;
+  chooseInviteFirst: string;
+  passphrasesDiffer: string;
+  inviteAccepted: (user: string) => string;
+  savePassport: string;
+  passportNotSaved: string;
+  passphraseFor: (passportFile: string) => string;
+  unlock: string;
+  unlocking: string;
+  switchPassport: string;
+  allowPassport: string;
+  alreadyOpen: (app: string) => string;
+  tryAgain: string;
+  /** The reconnect banner's accessible name, and what it says. */
+  reconnectTitle: string;
+  reconnectBanner: (folder: string) => string;
+  reconnect: string;
+  reconnected: string;
+  newInvite: string;
+  signedIn: (user: string, device: string, folder: string) => string;
+  version: (version: string, builtAt: string) => string;
+
   /** The update notice: a new version is cached and runs on the next load. */
   updateReady: (version: string) => string;
   loadUpdate: string;
   /** A release was refused; the reason is the loader's own message. */
   updateRefused: (reason: string) => string;
 
-  // The first-run flow (OUT-36) and the conflict prompt (OUT-38) add their entries here.
+  // The conflict prompt (OUT-38) adds its entries here.
 }
 
 export const defaultStrings: ShellStrings = {
@@ -95,6 +133,41 @@ export const defaultStrings: ShellStrings = {
   errorTitle: "Something went wrong",
   openDiagnostics: "Open diagnostics",
 
+  unexpectedError: "Unexpected error",
+  storageUnavailable: "This browser would not open its local storage, which the app needs. A private window or blocked site data can cause this.",
+  chooseFolder: "Choose the shared folder",
+  reconnectTo: (folder) => `Reconnect to "${folder}"`,
+  folderRefused: "Allow access to the folder to continue.",
+  passportIntro: (app) => `To open ${app} on this computer you need an invite from the admin, or the passport you saved from one.`,
+  haveInvite: "I have an invite",
+  havePassport: "I have a passport",
+  inviteFile: "Invite file from the admin",
+  invitePassphrase: "The invite's passphrase (from the admin)",
+  newPassphrase: "Choose your own passphrase (at least 12 characters)",
+  confirmPassphrase: "Type it again",
+  openInvite: "Open the invite",
+  openingInvite: "Opening the invite",
+  cancel: "Cancel",
+  chooseInviteFirst: "Choose the invite file first.",
+  passphrasesDiffer: "The two new passphrases do not match.",
+  inviteAccepted: (user) =>
+    `Invite accepted for ${user}. Save your passport somewhere on this computer, not in the shared folder. You will choose it once and then type your passphrase at each launch. The invite file can then be deleted.`,
+  savePassport: "Save my passport",
+  passportNotSaved: "The passport was not saved. Save it to continue.",
+  passphraseFor: (passportFile) => `Passphrase for your passport "${passportFile}"`,
+  unlock: "Unlock",
+  unlocking: "Unlocking",
+  switchPassport: "Use another passport or an invite",
+  allowPassport: "Allow access to your passport file to continue.",
+  alreadyOpen: (app) => `${app} is already open in another tab. Close it there, then try again.`,
+  tryAgain: "Try again",
+  reconnectTitle: "Folder access",
+  reconnectBanner: (folder) => `This browser no longer has access to "${folder}". Your changes are safe on this computer and will be shared once you reconnect.`,
+  reconnect: "Reconnect",
+  reconnected: "Reconnected. Catching up with the folder.",
+  newInvite: "Open a new invite",
+  signedIn: (user, device, folder) => `${user}, device ${device}, folder "${folder}"`,
+  version: (version, builtAt) => `Version ${version}, built ${builtAt}.`,
   updateReady: (version) => `Version ${version} is ready.`,
   loadUpdate: "Load it",
   updateRefused: (reason) => `A new version was not installed. ${reason}`,
