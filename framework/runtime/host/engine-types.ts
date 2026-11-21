@@ -85,5 +85,5 @@ export interface Engine {
   metrics(): Metrics;
   traces(filter?: { kind?: TraceKind; outcome?: TraceOutcome; limit?: number }): Trace[];
   setOffline(offline: boolean): void;
-  on(event: "trace" | "health" | "received" | "saved" | "error", listener: (payload: unknown) => void): () => void;
+  on(event: "trace" | "health" | "accepted" | "received" | "saved" | "error", listener: (payload: unknown) => void): () => void;
 }

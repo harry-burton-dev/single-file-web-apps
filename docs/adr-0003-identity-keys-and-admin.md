@@ -1,6 +1,6 @@
 # ADR-0003: Identity, keys and the admin app
 
-**Status:** Proposed
+**Status:** Accepted (2026-11-21, built in TR3; passport model amendments in sections 2 and 6)
 **Date:** 2026-11-20
 **Deciders:** Harry
 **Epic:** EA · EA Workbench
@@ -103,6 +103,13 @@ Each check is the workspace id (UTF-8) encrypted with that key id's key under AE
 ## Action Items
 
 1. [x] Specify the invite file format alongside the engine's envelope. (Section 6; TR3 OUT-8.)
-2. [ ] Build minting and invite import in the test page.
-3. [ ] Write the key backup procedure for the admin.
-4. [ ] Confirm Web Crypto and non-exportable key storage work on a page opened from disk.
+2. [x] Build minting and invite import in the test page. (Admin page `admin.html` mints invites, OUT-10; the app enrols from an invite and unlocks a passport, OUT-11.)
+3. [x] Write the key backup procedure for the admin. (The admin page will not finish creating a workspace or a rotation until the key backup has been downloaded, and reopens the workspace from that backup, OUT-10.)
+4. [x] Confirm Web Crypto and non-exportable key storage work on a page opened from disk. (`npm run smoke` from `file://` in headless Chrome: PBKDF2 and AES-GCM work, unlocked keys are non-extractable and nothing key-like is in IndexedDB. Since the passport model no key is stored in the browser at all.)
+
+## Differences found while building (TR3)
+
+- The engine took one key, not a key map; an optional `keys` input was added for reading after rotation (TR3 decision D16).
+- The key is no longer stored in the browser: it is held in memory for the session and at rest only in the user's passport (D4 to D6, D12).
+- `workspace.json` was added so a passport can be matched to its folder and an out-of-date one refused after a rotation (D13, D14).
+- Chrome refuses the browser's private file area on a page opened from disk, so the smoke tests use an in-page stand-in folder. Remembering a real passport or folder handle from disk is not covered by a test and is worth checking once by hand.

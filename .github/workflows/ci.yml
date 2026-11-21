@@ -16,9 +16,12 @@ jobs:
         run: npm ci
       - name: Engine and runtime tests
         run: npm test
-      - name: Typecheck and build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build with size budgets (G11)
+        # The bootstrap needs a public key; a throwaway one, as the smoke test uses.
         run: |
-          npm run typecheck
-          npm run build:app
+          export TRELLIS_PUBLIC_KEY="$(npm run --silent keygen | sed -n 's/^TRELLIS_PUBLIC_KEY=//p')"
+          npm run build
       - name: No fixed test key in the build
         run: npm run check:no-test-key
