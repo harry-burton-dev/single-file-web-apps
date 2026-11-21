@@ -12,9 +12,9 @@
 
 1. **Layout.** Rename and regroup, moving files without changing behaviour:
    - `framework/engine/` (today `sync-engine/`), `framework/runtime/` (host, loader, bootstrap, later identity and shell), `app/` (the only folder a project edits), `masters/` unchanged in role.
-   - npm workspaces so `app/` imports `@satchel/framework` and never a relative path into it.
+   - npm workspaces so `app/` imports `@trellis/framework` and never a relative path into it.
 2. **`app/app.config.ts`**, the single definition: `{ id, name, tables: { <table>: <schema> } }`. `id` is lower-case letters, digits and hyphens.
-3. **Derived names.** Database name, device lock name, folder-picker id, page title, bundle file prefix and release zip name all come from `id` and `name`. Key variables become `SATCHEL_PUBLIC_KEY` and `SATCHEL_SIGNING_KEY`.
+3. **Derived names.** Database name, device lock name, folder-picker id, page title, bundle file prefix and release zip name all come from `id` and `name`. Key variables become `TRELLIS_PUBLIC_KEY` and `TRELLIS_SIGNING_KEY`.
 4. **Public entry.** `framework/index.ts` exports what an app may use; nothing else is importable from `app/` (enforced in S2).
 
 ## Defaults chosen

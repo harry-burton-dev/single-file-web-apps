@@ -10,7 +10,7 @@
 
 ## Deliver
 
-1. **Shell component** `<SatchelApp config={...}>{screens}</SatchelApp>` that owns, in order: invite (S3), choose or reconnect the folder, "already open in another tab", then the app's screens.
+1. **Shell component** `<TrellisApp config={...}>{screens}</TrellisApp>` that owns, in order: invite (S3), choose or reconnect the folder, "already open in another tab", then the app's screens.
 2. **Always-available pieces:** health indicator with plain-language states, update-ready notice, conflict prompt (default UI for S2's conflicts), error boundary that shows the error and offers the diagnostics view, and the diagnostics view (the existing inspector) behind a menu item.
 3. **Theming hook.** The shell's pieces use the project's Tailwind tokens so an app's design applies to them; no shell text or colour is hard-coded to one app.
 4. **Example app** in `app/`: one table (`items`: title "latest", done "latest", notes "text", owner "ask") and one screen listing, adding and editing items. It is what a new project deletes or rewrites.

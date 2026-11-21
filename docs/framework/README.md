@@ -1,14 +1,14 @@
-# Satchel: framework plan for the first release (v0.1.0)
+# Trellis: framework plan for the first release (v0.1.0)
 
-**Status:** Proposed, 2026-11-21. Working name "Satchel" (replaces "Workbench"); it is set in one place by epic S1, so changing it later is one edit.
+**Status:** Accepted, 2026-11-21. The framework is named Trellis (chosen by Harry; replaces "Workbench").
 
-Satchel is a starting point for small team apps that run from a shared folder with no server. A new project copies this repository, describes its tables, and writes screens. Everything else is already done: sync, encryption, identity, signed updates, the app shell, tests and release.
+Trellis is a starting point for small team apps that run from a shared folder with no server. A new project copies this repository, describes its tables, and writes screens. Everything else is already done: sync, encryption, identity, signed updates, the app shell, tests and release.
 
 ## 1. Desired state
 
 A developer (or an agent) can do this, and nothing more, to get a working app:
 
-1. Run one command to create a project from Satchel with a new name.
+1. Run one command to create a project from Trellis with a new name.
 2. Edit one file to declare the app's tables and field rules.
 3. Write React screens that read with hooks and write with commands.
 4. Push a tag to get a signed release zip to copy into the shared folder.
@@ -39,7 +39,7 @@ Each gate is pass or fail and is checked by a command, not by opinion. v0.1.0 sh
 | Gate | Requirement | Check |
 |---|---|---|
 | G1 New project | `npm run create -- <name>` in a clean clone produces a project that installs, typechecks, tests and builds with no manual edit | CI job creates a project named `demo-app` and runs its full CI in it |
-| G2 No leftover names | The created project contains neither "workbench" nor "satchel" outside `node_modules`, the lockfile and a single attribution line | `grep -ri` in the created project returns only the allowed lines |
+| G2 No leftover names | The created project contains neither "workbench" nor "trellis" outside `node_modules`, the lockfile and a single attribution line | `grep -ri` in the created project returns only the allowed lines |
 | G3 One definition file | App name, id, tables and field rules are declared only in `app/app.config.ts` | Changing the name there changes the page title, database name, lock name and release file names; test asserts all four |
 | G4 No business logic | Framework folders hold no table or field name of any app | A test loads the framework with an empty app definition and starts; grep finds no example-app identifiers in framework folders |
 | G5 Screens never touch the engine | App code imports only from the framework's public entry | Lint rule or test fails on any import from engine, loader or host internals in `app/` |
@@ -67,11 +67,13 @@ Not in the rubric for v0.1.0: plugins (ADR-0006), a second release channel, and 
 | [S5 Durability](s5-durability.md) | Engine faults closed, schema versions, backup and restore | G9, G10 | S1 (engine part: none) |
 | [S6 New project and release](s6-new-project-and-release.md) | `create` command, rubric runner, quickstart, release v0.1.0 | G1, G2, G8, G12, G13 | all |
 
+In Linear the epics are projects TR1 to TR6 (S1 is TR1, and so on) in the Outer-Pale team.
+
 Order: S1 first. S2, S3 and the engine half of S5 can run side by side. S4 next. S6 last.
 
 ## 5. Rules for running this unattended
 
-- One pull request per epic, opened as a draft, named `SATCHEL · S<n> · <summary>`. Do not merge; Harry merges.
+- One pull request per epic, opened as a draft, named `TRELLIS · S<n> · <summary>`. Do not merge; Harry merges.
 - Tests are written first and seen to fail. A gate is never met by skipping, deleting or weakening a test.
 - No long simulation runs. The short sanity run (5 seeds, two fault profiles) is the limit unless a change touches engine save, scan or compaction logic, in which case 30 seeds of `short` under `rough` and `hostile`.
 - Every decision listed under "Defaults chosen" in a spec is taken as written. Anything not covered that changes file formats, key handling or the loader contract stops the epic and is reported, with a recommendation.
