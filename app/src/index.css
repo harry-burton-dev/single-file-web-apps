@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@source "../../framework/runtime/shell";
+@source not "../../framework/runtime/shell/test";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -1,5 +1,5 @@
 // Engine test page: connect a folder, unlock a passport, edit one shared note,
-// and watch the connection indicator and sync inspector. Real screens replace this.
+// and watch the health indicator; its menu opens the diagnostics view. Real screens replace this.
 //
 // Keys come only from the user's passport (TR3, ADR-0003 section 2): once, the
 // admin's invite is turned into a passport saved on this machine; at every
@@ -7,11 +7,12 @@
 // memory for the session. IndexedDB keeps the folder and passport handles and
 // the device id, never a key.
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import {
   appNames,
+  Button,
   enrol,
   forgetPassport,
+  HealthIndicator,
   KeyFileError,
   loadFolder,
   loadPassport,
@@ -24,6 +25,7 @@ import {
   regrant,
   regrantPassport,
   savePassport,
+  ShellProvider,
   startHost,
   unlock,
   type Engine,
@@ -33,10 +35,8 @@ import {
   type PassportState,
 } from "@trellis/framework";
 import app from "../app.config";
-import { ConnectionIndicator } from "./connection-indicator";
 import { loader } from "./loader-services";
-import { SyncInspector } from "./sync-inspector";
-import { useSharedText, useSync } from "./use-engine";
+import { useSharedText } from "./use-engine";
 
 const names = appNames(app);
 const TABLE = "scratch";
@@ -287,7 +287,6 @@ function UnlockStep({ session, onChange }: { session: Extract<Session, { phase: 
 }
 
 function RunningView({ session, onChange }: { session: Running; onChange: (next: Session) => void }) {
-  const view = useSync(session.engine);
   const map = session.engine.table(TABLE).getMap("note");
   const text = useSharedText(map, "text");
   const [inviting, setInviting] = useState(false);
@@ -300,27 +299,28 @@ function RunningView({ session, onChange }: { session: Running; onChange: (next:
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <ConnectionIndicator health={view.health} />
-      <p className="text-xs text-muted-foreground">
-        {session.user.name}, device {session.deviceId}, folder "{session.root.name}"
-      </p>
-      <textarea
-        id="note"
-        className="min-h-32 rounded-md border p-2 text-sm"
-        placeholder="Shared test note"
-        value={text}
-        onChange={(event) => map.set("text", event.target.value)}
-      />
-      {inviting ? (
-        <InviteForm db={session.db} root={session.root} onDone={replaced} onCancel={() => setInviting(false)} />
-      ) : (
-        <Button id="new-invite" variant="outline" className="self-start" onClick={() => setInviting(true)}>
-          Open a new invite
-        </Button>
-      )}
-      <SyncInspector engine={session.engine} view={view} />
-    </div>
+    <ShellProvider engine={session.engine}>
+      <div className="flex flex-col gap-4">
+        <HealthIndicator />
+        <p className="text-xs text-muted-foreground">
+          {session.user.name}, device {session.deviceId}, folder "{session.root.name}"
+        </p>
+        <textarea
+          id="note"
+          className="min-h-32 rounded-md border p-2 text-sm"
+          placeholder="Shared test note"
+          value={text}
+          onChange={(event) => map.set("text", event.target.value)}
+        />
+        {inviting ? (
+          <InviteForm db={session.db} root={session.root} onDone={replaced} onCancel={() => setInviting(false)} />
+        ) : (
+          <Button id="new-invite" variant="outline" className="self-start" onClick={() => setInviting(true)}>
+            Open a new invite
+          </Button>
+        )}
+      </div>
+    </ShellProvider>
   );
 }
 

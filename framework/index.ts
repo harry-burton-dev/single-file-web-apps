@@ -12,3 +12,16 @@ export type { Register } from "./data/schema";
 export { enrol, unlock, PassportError } from "./runtime/identity/passport.js";
 export { KeyFileError } from "./runtime/identity/keyfile.js";
 export type { Identity } from "./runtime/identity/types";
+export {
+  ShellProvider,
+  HealthIndicator,
+  useHealth,
+  defaultStrings,
+  Button,
+  buttonVariants,
+  Badge,
+  badgeVariants,
+  type ShellStrings,
+  type ShellStringOverrides,
+  type HealthWording,
+} from "./runtime/shell";

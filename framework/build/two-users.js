@@ -10,8 +10,8 @@
 //   4. the folder is partitioned, both type and save, neither sees the other;
 //      the partition heals and both end with the same text
 //
-// Saving and reading are driven by the sync inspector's "Save now" and "Read
-// folder now", not by waiting for timers.
+// Saving and reading are driven by the diagnostics view's "Save now" and "Read
+// folder now" (opened from the health menu), not by waiting for timers.
 //
 // NOT covered: the real folder picker (headless Chrome cannot drive it, so it
 // is replaced by one returning the stand-in) and a real synced folder (the
@@ -81,8 +81,15 @@ async function openUser(browser, folder, label, user) {
 }
 
 const note = (u) => u.page.inputValue("#note");
-const save = (u) => u.page.getByRole("button", { name: "Save now" }).click();
-const read = (u) => u.page.getByRole("button", { name: "Read folder now" }).click();
+/** Opens the diagnostics view from the health menu, presses `name`, and closes it again (it is modal). */
+async function diagnostics(u, name) {
+  await u.page.locator("#connection > button").click();
+  await u.page.getByRole("menuitem", { name: "Diagnostics" }).click();
+  await u.page.getByRole("button", { name }).click();
+  await u.page.getByRole("button", { name: "Close" }).click();
+}
+const save = (u) => diagnostics(u, "Save now");
+const read = (u) => diagnostics(u, "Read folder now");
 
 /** "Read folder now" on `u` until its note shows `expected` (the save on the other page may still be finishing). */
 async function readUntil(u, expected, timeoutMs = SYNC_TIMEOUT_MS) {
