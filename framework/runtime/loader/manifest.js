@@ -9,8 +9,8 @@
 // release scripts all use it, in the browser and in Node.
 
 export const MANIFEST_FORMAT = 1;
-/** Bundles are write-once files named by version, directly in app/. */
-export const BUNDLE_FILE_RE = /^app-[0-9A-Za-z][0-9A-Za-z.-]*\.js$/;
+/** Bundles are write-once files named <app id>-<version>.js, directly in app/. */
+export const BUNDLE_FILE_RE = /^[a-z0-9]+(-[a-z0-9]+)*-[0-9A-Za-z][0-9A-Za-z.-]*\.js$/;
 
 const ECDSA = { name: "ECDSA", hash: "SHA-256" };
 const CURVE = { name: "ECDSA", namedCurve: "P-256" };

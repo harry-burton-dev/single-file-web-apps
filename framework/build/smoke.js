@@ -1,6 +1,6 @@
 // From-disk smoke test (ADR-0005 section 8, step 3). Builds the bootstrap and
 // the app bundle with a throwaway signing key, lays out a release folder, and
-// opens workbench.html from disk (file://) in headless Chrome:
+// opens the bootstrap page from disk (file://) in headless Chrome:
 //
 //   1. first run: connect the folder, the signed bundle is verified and the app starts
 //   2. reload: the app starts from the browser's cache, no folder needed
@@ -18,6 +18,8 @@ import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
+import { appNames } from "../runtime/names.ts";
+import definition from "./app-definition.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const { subtle } = webcrypto;
@@ -26,20 +28,21 @@ const VITE_CONFIG = join(ROOT, "framework", "build", "vite.config.js");
 const DIST = join(ROOT, "dist");
 const RELEASE = join(DIST, "smoke-release");
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
-const bundleName = `app-${version}.js`;
-const APP_HEADING = "Workbench engine test page";
+const names = appNames(definition);
+const bundleName = names.bundleFile(version);
+const APP_HEADING = `${names.title} engine test page`;
 
 const newKey = () => subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
 
 async function buildRelease() {
   const admin = await newKey();
   const publicJwk = JSON.stringify(await subtle.exportKey("jwk", admin.publicKey));
-  const vite = (mode) => execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit", env: { ...process.env, WORKBENCH_PUBLIC_KEY: publicJwk } });
+  const vite = (mode) => execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit", env: { ...process.env, TRELLIS_PUBLIC_KEY: publicJwk } });
   vite("bootstrap");
   vite("app");
   rmSync(RELEASE, { recursive: true, force: true });
   mkdirSync(join(RELEASE, "app"), { recursive: true });
-  copyFileSync(join(DIST, "workbench.html"), join(RELEASE, "workbench.html"));
+  copyFileSync(join(DIST, "bootstrap.html"), join(RELEASE, names.bootstrapFile));
   copyFileSync(join(DIST, "app", bundleName), join(RELEASE, "app", bundleName));
   const bundle = readFileSync(join(RELEASE, "app", bundleName));
   const body = { format: 1, serial: 1, channels: { stable: version }, bundles: { [version]: { file: bundleName, sha256: await sha256Hex(bundle, subtle), minBootstrap: 1 } } };
@@ -77,7 +80,7 @@ async function openPage(browser, files) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(String(err)));
-  await page.goto(pathToFileURL(join(RELEASE, "workbench.html")).href);
+  await page.goto(pathToFileURL(join(RELEASE, names.bootstrapFile)).href);
   return { context, page, errors };
 }
 
@@ -108,10 +111,10 @@ try {
   await bad.page.click("#boot-connect");
   await bad.page.waitForFunction(() => document.getElementById("boot-message")?.textContent?.includes("not signed"), null, { timeout: 10000 }).catch(() => {});
   const message = await bad.page.locator("#boot-message").textContent().catch(() => "");
-  check("a manifest signed with another key is refused", message.includes("not signed") && (await heading(bad.page)) === "Workbench", message);
+  check("a manifest signed with another key is refused", message.includes("not signed") && (await heading(bad.page)) === names.title, message);
   await bad.context.close();
 } finally {
   await browser.close();
 }
 if (checks.includes(false)) process.exit(1);
-console.log(`smoke test passed: bootstrap ${readFileSync(join(RELEASE, "workbench.html")).length} bytes, bundle ${bundle.length} bytes`);
+console.log(`smoke test passed: bootstrap ${readFileSync(join(RELEASE, names.bootstrapFile)).length} bytes, bundle ${bundle.length} bytes`);

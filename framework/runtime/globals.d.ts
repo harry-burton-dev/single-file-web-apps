@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+/** The app's id and name, from its definition, injected by the build. */
+declare const __APP__: { id: string; name: string };
 declare const __APP_VERSION__: string;
 declare const __BUILT_AT__: string;
 /** The admin's public signing key (ECDSA P-256, JWK), built into the bootstrap. */

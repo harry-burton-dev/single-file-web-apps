@@ -8,6 +8,13 @@ import { webcrypto } from "node:crypto";
 import { build } from "vite";
 import { appConfig } from "../../build/vite.config.js";
 import repoDefinition from "../../build/app-definition.js";
+import { appNames } from "../names.ts";
+import { BUNDLE_FILE_RE } from "../loader/manifest.js";
+
+test("the manifest accepts the bundle file name the build gives", () => {
+  for (const id of ["acme-notes", "farm2", repoDefinition.id]) assert.match(appNames({ id, name: "X" }).bundleFile("1.2.3"), BUNDLE_FILE_RE);
+  for (const file of ["../acme-1.0.0.js", "app/acme-1.0.0.js", "Acme-1.0.0.js", "acme.js"]) assert.doesNotMatch(file, BUNDLE_FILE_RE);
+});
 
 test("a build through the Vite factory uses the given definition's names", async () => {
   const definition = { id: "acme-notes", name: "Acme Notes", tables: {} };
