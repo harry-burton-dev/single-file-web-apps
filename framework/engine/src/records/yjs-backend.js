@@ -13,7 +13,9 @@ export function createYjsBackend({ doc }) {
   const records = doc.getMap("records");
   const meta = doc.getMap("meta");
 
-  const slotsOf = (id, field) => {
+  // `devices`, when the caller already grouped the keys, skips the full key scan.
+  const slotsOf = (id, field, devices) => {
+    if (devices) return devices.map((device) => ({ device, ...records.get(key3(id, field, device)) }));
     const prefix = key3(id, field, "");
     const out = [];
     for (const key of records.keys()) {
@@ -33,10 +35,16 @@ export function createYjsBackend({ doc }) {
       const v = records.get(key);
       return v instanceof Y.Text ? v.toString() : typeof v === "string" ? v : undefined;
     },
-    getAsk(id, field) {
-      return survivors(slotsOf(id, field)).map(({ value, user, device, writtenAt }) => ({ value, user, device, writtenAt }));
+    getAsk(id, field, devices) {
+      return survivors(slotsOf(id, field, devices)).map(({ value, user, device, writtenAt }) => ({ value, user, device, writtenAt }));
     },
     schemaVersion: () => maxVersion(meta.entries()),
+    // Fires after every committed change to the doc, local or remote.
+    onChange(listener) {
+      const h = () => listener();
+      doc.on("update", h);
+      return () => doc.off("update", h);
+    },
 
     // doc.transact without an origin: a local change for the adapter.
     write(fn) {
