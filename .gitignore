@@ -5,3 +5,5 @@ dist/
 .linear-link/
 sync-engine/results/
 *.log
+.claude/
+epics/

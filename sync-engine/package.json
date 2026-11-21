@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test \"test/**/*.test.js\"",
+    "probes": "node --test \"test/breaker/*.probe.js\""
   },
   "keywords": [],
   "author": "",

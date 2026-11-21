@@ -101,6 +101,16 @@ The bundle exports one entry function, called with the loader's services (folder
 4. In the admin app, publish: copy the bundle into `app/`, then write the new signed manifest.
 5. Colleagues receive it on their next update check.
 
+### 9. Release pipeline as built (2026-11-21)
+
+Until the admin app exists, a release is produced by GitHub Actions, not by the admin app:
+
+- **CI** (`.github/workflows/ci.yml`): on every pull request and push to `main`, runs the engine tests, the workbench typecheck and tests, and builds the app bundle.
+- **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `workbench-1.2.0.zip`. The zip is the `Workbench/` folder of section 2, ready to copy into the shared folder.
+- **Keys:** `node scripts/keygen.js` (in `workbench/`) prints a key pair. The public key is the repository variable `WORKBENCH_PUBLIC_KEY`; the private key is the repository secret `WORKBENCH_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
+- **Serial:** the build time in seconds.
+- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag. The adversarial probes (`npm run probes` in `sync-engine/`) are not part of CI; three of them still fail.
+
 ## Options Considered
 
 | Option | Complexity | Drawback |
