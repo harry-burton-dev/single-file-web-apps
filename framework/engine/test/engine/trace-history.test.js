@@ -59,11 +59,15 @@ test("history survives a restart, stays bounded, and is written in batches", asy
   const w = await makeWorld({ options: { trace: { memoryLimit: 50, storeLimit: 20, persistBatch: 5 } } });
   const store = countingStore();
   const a = await w.device(A, { store });
-  await w.run([a], 120000);
+  let saves = 0;
+  a.on("trace", (t) => { if (t.kind === "save") saves += 1; });
+  for (let i = 0; i < 110; i++) {
+    edit(a, `k${i}`, i);
+    await w.run([a], 3000);
+  }
   await a.close();
-  const total = a.traces()[0].id;
-  assert.ok(total > 100, `plenty of traces were made (${total})`);
-  assert.ok(store.counts.traceSets <= Math.ceil(total / 5) + 1, "one store write per batch of 5, not per trace");
+  assert.ok(saves > 100, `plenty of saves were traced (${saves})`);
+  assert.ok(store.counts.traceSets <= Math.ceil((saves + 1) / 5) + 1, "one store write per batch of 5, not per trace");
   assert.ok(store.counts.traceSets >= 20);
   const segments = await store.inner.keys("trace/");
   assert.ok(segments.length * 5 <= 20 + 5 + 5, `old segments were deleted (${segments.length} left)`);
@@ -79,6 +83,28 @@ test("history survives a restart, stays bounded, and is written in batches", asy
   assert.ok(restored[0].id > lastBefore.id, "ids keep increasing across the restart");
   assert.ok(restored.slice(1).every((t) => t.id <= lastBefore.id));
   assert.ok(restored.every((t, i) => i === 0 || t.id < restored[i - 1].id));
+});
+
+test("routine idle traces are kept in memory and emitted, but never written to the store", async () => {
+  const w = await makeWorld({ options: { trace: { persistBatch: 5 } } });
+  const store = countingStore();
+  const a = await w.device(A, { store });
+  const emitted = [];
+  a.on("trace", (t) => emitted.push(t));
+  await w.run([a], 10 * 60000);
+  assert.ok(a.traces({ kind: "scan" }).length > 50, "idle scans are still in the history");
+  assert.ok(a.traces({ kind: "status" }).length > 50, "idle status writes are still in the history");
+  assert.ok(emitted.length > 100, "and still emitted");
+  assert.equal(store.counts.traceSets, 0, "ten idle minutes write no trace segment");
+
+  edit(a, "x");
+  await w.run([a], 10000);
+  await a.close();
+  const stored = (await Promise.all((await store.inner.keys("trace/")).map((k) => store.inner.get(k)))).flat();
+  assert.ok(stored.some((t) => t.kind === "save"), "a save is stored");
+  assert.ok(stored.some((t) => t.reason === "startup"), "the startup scan is stored");
+  const routine = (t) => t.reason === "scheduled" && t.outcome === "ok" && (t.kind === "scan" || t.kind === "status") && !t.counts.apply && !t.counts.delete && !t.counts.errors;
+  assert.equal(stored.filter(routine).length, 0, "no routine trace is stored");
 });
 
 test("a crash loses at most the traces not yet written in a batch", async () => {

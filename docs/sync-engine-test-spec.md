@@ -146,7 +146,7 @@ As implemented:
 
 - **Levels.** `full` keeps every step; `summary` keeps counts only; `off` keeps no traces, but durations and counters are still collected so `metrics()` works.
 - **Reasons.** Saves: `quiet`, `max-wait`, `retry`, `forced`; skipped saves: `min-interval`, `backoff`, `nothing-pending` (one skipped trace per reason, not one per tick). Scans: `startup`, `scheduled`, `forced`.
-- **History.** The newest 500 traces are kept in memory and about 200 in the local store, written in batches of 10, so a crash can lose the last unwritten batch. A stored trace keeps at most 100 steps; an in-memory trace at most 2000.
+- **History.** The newest 500 traces are kept in memory and about 200 non-routine traces in the local store (routine scheduled scans and status writes are not stored), written in batches of 10, so a crash can lose the last unwritten batch. A stored trace keeps at most 100 steps; an in-memory trace at most 2000.
 - **Acknowledgement** means a peer's status shows it has seen this device's latest written chunk, sealed or not. Only the `chunks` layout has sequence numbers, so only it can report `not-reaching-peers` or acknowledgement lag.
 - **`folder-disconnected`** is set when the root cannot be listed, when any operation fails with `NotAllowedError` or `SecurityError`, or when creating a file directly under the root fails with `NotFoundError`. It clears on the next success of the same kind.
 - **State priority:** `offline`, `folder-disconnected`, `retrying`, `saving`, `not-reaching-peers`, `saved`.
