@@ -10,8 +10,10 @@
 //   latest / text field  : `<id> SEP <field>`
 //   ask field            : `<id> SEP <field> SEP <deviceId>`  (one slot per device)
 //   deleted flag         : `<id> SEP deleted`  (a "latest" boolean)
+//   record version       : `<id> SEP _v`  (a "latest" number; missing means 1)
 export const SEP = "\u001f";
 export const DELETED = "deleted";
+export const VERSION = "_v";
 
 export const key2 = (id, field) => id + SEP + field;
 export const key3 = (id, field, device) => id + SEP + field + SEP + device;
