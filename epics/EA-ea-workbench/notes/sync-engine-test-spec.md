@@ -176,7 +176,7 @@ In the simulator `offline` and `folder-disconnected` have no cause, so seeing ei
 | `statusMs` | 60000 | |
 | `ownCheckMs` | 600000 | How often own sealed chunks are compared with the folder, and the least time between two repairs of one table |
 | `compaction.enabled` | `true` | `false` |
-| `compaction.chunkThreshold` | 200 | 50 |
+| `compaction.chunkThreshold` | 50 | 200 (the default until 2026-11-21) |
 | `compaction.snapshotMaxAgeMs` | 7 days | |
 | `compaction.minSnapshotAgeMs` | 24 hours | 0 |
 | `compaction.activeWindowMs` | 30 days | |
