@@ -4,9 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { createMemFolder } from "../../../sync-engine/test/helpers/memfolder.js";
-import { importPublicKey, sha256Hex, signManifest, verifyManifest } from "../../src/loader/manifest.js";
-import { cachedBundle, checkForUpdate, readState } from "../../src/loader/loader.js";
+import { createMemFolder } from "../../engine/test/helpers/memfolder.js";
+import { importPublicKey, sha256Hex, signManifest, verifyManifest } from "../loader/manifest.js";
+import { cachedBundle, checkForUpdate, readState } from "../loader/loader.js";
 
 const { subtle } = webcrypto;
 const text = (s) => new TextEncoder().encode(s);

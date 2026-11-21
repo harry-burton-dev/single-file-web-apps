@@ -1,5 +1,5 @@
 // Create the release signing key pair (ECDSA P-256), printed as two JSON
-// lines. Run once: `node scripts/keygen.js`. Store the first line as the
+// lines. Run once: `npm run keygen`. Store the first line as the
 // GitHub Actions variable WORKBENCH_PUBLIC_KEY and the second as the secret
 // WORKBENCH_SIGNING_KEY, keep a backup of the second somewhere safe, and never
 // commit it. Whoever holds the private key can ship code to every colleague.

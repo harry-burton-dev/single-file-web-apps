@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Engine, Metrics, Trace } from "@/host/engine-types";
+import type { Engine, Metrics, Trace } from "@trellis/framework";
 import { clockTime, milliseconds } from "./format";
 import type { SyncView } from "./use-engine";
 

@@ -1,6 +1,6 @@
 // The always-visible sync status (ADR-0004 section 5).
 import { Badge } from "@/components/ui/badge";
-import type { Health, HealthState } from "@/host/engine-types";
+import type { Health, HealthState } from "@trellis/framework";
 import { clockTime } from "./format";
 
 const LABELS: Record<HealthState, string> = {

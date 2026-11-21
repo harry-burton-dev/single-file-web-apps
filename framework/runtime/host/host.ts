@@ -2,8 +2,8 @@
 // Real clock, randomness and timer; the IndexedDB store; one-tab-per-device
 // locking; the once-a-second tick; flush when the page is hidden; and the
 // browser's online/offline hint.
-import { createEngine } from "../../../sync-engine/src/engine/engine.js";
-import { createYjsAdapter } from "../../../sync-engine/src/adapters/yjs.js";
+import { createEngine } from "../../engine/src/engine/engine.js";
+import { createYjsAdapter } from "../../engine/src/adapters/yjs.js";
 import type { Engine } from "./engine-types";
 import type { KeyValueDb } from "./idb";
 

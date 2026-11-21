@@ -2,7 +2,7 @@
 // state change emits a health event, so re-reading on those two keeps the
 // screen current without polling.
 import { useMemo, useSyncExternalStore } from "react";
-import type { Engine, Health, Metrics, SharedMap, Trace } from "@/host/engine-types";
+import type { Engine, Health, Metrics, SharedMap, Trace } from "@trellis/framework";
 
 const TRACE_LIMIT = 100;
 

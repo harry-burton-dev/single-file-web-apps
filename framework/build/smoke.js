@@ -17,14 +17,15 @@ import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { sha256Hex, signManifest } from "../src/loader/manifest.js";
+import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const { subtle } = webcrypto;
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const VITE_CONFIG = join(ROOT, "framework", "build", "vite.config.js");
 const DIST = join(ROOT, "dist");
 const RELEASE = join(DIST, "smoke-release");
-const version = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
+const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const bundleName = `app-${version}.js`;
 const APP_HEADING = "Workbench engine test page";
 
@@ -33,7 +34,7 @@ const newKey = () => subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, 
 async function buildRelease() {
   const admin = await newKey();
   const publicJwk = JSON.stringify(await subtle.exportKey("jwk", admin.publicKey));
-  const vite = (mode) => execFileSync("npx", ["vite", "build", "--mode", mode], { cwd: ROOT, stdio: "inherit", env: { ...process.env, WORKBENCH_PUBLIC_KEY: publicJwk } });
+  const vite = (mode) => execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit", env: { ...process.env, WORKBENCH_PUBLIC_KEY: publicJwk } });
   vite("bootstrap");
   vite("app");
   rmSync(RELEASE, { recursive: true, force: true });

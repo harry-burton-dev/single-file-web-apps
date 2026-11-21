@@ -2,10 +2,7 @@
 // connection indicator and sync inspector. Real screens replace this.
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { Engine } from "@/host/engine-types";
-import { loadFolder, pickFolder, regrant, type FolderState } from "@/host/folder";
-import { startHost } from "@/host/host";
-import { openDb, type KeyValueDb } from "@/host/idb";
+import { loadFolder, openDb, pickFolder, regrant, startHost, type Engine, type FolderState, type KeyValueDb } from "@trellis/framework";
 import { ConnectionIndicator } from "./connection-indicator";
 import { loader } from "./loader-services";
 import { testWorkspaceKey } from "./test-key";

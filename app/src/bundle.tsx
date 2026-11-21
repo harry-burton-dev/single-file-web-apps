@@ -2,9 +2,9 @@
 // included, run by the bootstrap from a Blob URL.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./app/app";
-import { setLoader } from "./app/loader-services";
-import type { LoaderServices } from "./loader/contract";
+import { App } from "./app";
+import { setLoader } from "./loader-services";
+import type { LoaderServices } from "@trellis/framework";
 import css from "./index.css?inline";
 
 export function start(services: LoaderServices): void {

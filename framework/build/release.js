@@ -6,30 +6,31 @@
 //   Workbench/app/manifest.json      signed: points the stable channel at this version
 //
 // Needs WORKBENCH_PUBLIC_KEY and WORKBENCH_SIGNING_KEY (JWK as JSON, from
-// scripts/keygen.js). The manifest's serial is the build time in seconds, so
+// framework/build/keygen.js). The manifest's serial is the build time in seconds, so
 // every release outranks the one before it.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { importPublicKey, sha256Hex, signManifest, verifyManifest } from "../src/loader/manifest.js";
+import { importPublicKey, sha256Hex, signManifest, verifyManifest } from "../runtime/loader/manifest.js";
 
 const { subtle } = webcrypto;
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const VITE_CONFIG = join(ROOT, "framework", "build", "vite.config.js");
 const DIST = join(ROOT, "dist");
 const OUT = join(DIST, "release", "Workbench");
 
 for (const name of ["WORKBENCH_PUBLIC_KEY", "WORKBENCH_SIGNING_KEY"]) {
   if (!process.env[name]) {
-    console.error(`${name} is not set. Create a key pair with: node scripts/keygen.js`);
+    console.error(`${name} is not set. Create a key pair with: npm run keygen`);
     process.exit(1);
   }
 }
-const version = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
+const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const bundleName = `app-${version}.js`;
 
-for (const mode of ["bootstrap", "app"]) execFileSync("npx", ["vite", "build", "--mode", mode], { cwd: ROOT, stdio: "inherit" });
+for (const mode of ["bootstrap", "app"]) execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit" });
 
 rmSync(join(DIST, "release"), { recursive: true, force: true });
 mkdirSync(join(OUT, "app"), { recursive: true });

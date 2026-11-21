@@ -1,6 +1,6 @@
 // The bootstrap's services, when the app was started by it. Absent in
 // development, where the app is served directly (ADR-0005 section 7).
-import type { LoaderServices } from "@/loader/contract";
+import type { LoaderServices } from "@trellis/framework";
 
 let services: LoaderServices | undefined;
 

@@ -12,15 +12,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Sync engine tests
-        working-directory: sync-engine
+      - name: Install
+        run: npm ci
+      - name: Engine and runtime tests
+        run: npm test
+      - name: Typecheck and build
         run: |
-          npm ci
-          npm test
-      - name: Workbench typecheck, tests and build
-        working-directory: workbench
-        run: |
-          npm ci
           npm run typecheck
-          npm test
           npm run build:app

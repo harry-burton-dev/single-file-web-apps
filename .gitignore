@@ -3,7 +3,7 @@ dist/
 .vite/
 .gstack/
 .linear-link/
-sync-engine/results/
+framework/engine/results/
 *.log
 .claude/
 epics/
