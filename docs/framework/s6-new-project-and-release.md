@@ -33,4 +33,4 @@
 ## Needs Harry
 
 - Run `npm run keygen` and store the two values in GitHub before step 8.
-- Confirm the name before S1 starts renaming.
+- Name confirmed as Trellis (2026-11-21).
