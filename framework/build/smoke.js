@@ -96,56 +96,69 @@ async function openPage(browser, files) {
 }
 
 /**
- * Runs in the page before its own scripts, for step 4: a writable in-page
- * disk kept in sessionStorage so it survives a reload. "folder/" is the shared
- * folder the folder picker returns; "local/" is where the save picker puts the
- * passport. Such handles cannot be kept in IndexedDB as real ones can, so a
- * stored handle is replaced by a marker and brought back when read.
+ * The stand-in disk for step 4, kept here in Node so it survives page reloads.
+ * (Kept in the page's sessionStorage, it was sometimes empty after a reload
+ * of a page opened from disk.) "folder/" is the shared folder the folder
+ * picker returns; "local/" is where the save picker puts the passport.
+ * Files are base64 with a modification counter; directories are a set.
  */
-function fakeDisk({ seed }) {
-  const PREFIX = "smoke-disk:";
-  let tick = Date.now();
+function nodeDisk(seed) {
+  const files = new Map();
+  const dirs = new Set();
+  let tick = 0;
+  const put = (path, b64) => {
+    files.set(path, { b64, mtime: ++tick });
+    const parts = path.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  };
+  for (const [path, b64] of Object.entries(seed)) put(path, b64);
+  const ops = {
+    read: (path) => files.get(path) ?? null,
+    put,
+    isDir: (path) => dirs.has(path),
+    mkdir: (path) => void dirs.add(path),
+    children: (path) => [...[...dirs].map((p) => ({ dir: true, p })), ...[...files.keys()].map((p) => ({ dir: false, p }))].filter(({ p }) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes("/")),
+    remove: (path) => void (files.delete(path) || dirs.delete(path)),
+  };
+  return { ...ops, call: (_source, op, ...args) => ops[op](...args) };
+}
+
+/**
+ * Runs in the page before its own scripts, for step 4: file handles over the
+ * Node-side disk (smokeDiskIo, exposed by the test). Such handles cannot be
+ * kept in IndexedDB as real ones can, so a stored handle is replaced by a
+ * marker and brought back when read.
+ */
+function fakeDisk() {
+  const io = (...args) => window.smokeDiskIo(...args);
   const toB64 = (bytes) => { let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s); };
   const fromB64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const read = (path) => JSON.parse(sessionStorage.getItem(PREFIX + path) ?? "null");
-  const put = (path, b64) => sessionStorage.setItem(PREFIX + path, JSON.stringify({ b64, mtime: ++tick }));
   const notFound = () => { throw new DOMException("not found", "NotFoundError"); };
   const granted = { queryPermission: async () => "granted", requestPermission: async () => "granted" };
   const bytesOf = (data) => (typeof data === "string" ? new TextEncoder().encode(data) : ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data));
-  const isDir = (path) => sessionStorage.getItem(`${PREFIX}dir:${path}`) !== null;
-  const children = (path) => Object.keys(sessionStorage).filter((k) => k.startsWith(PREFIX)).map((k) => k.slice(PREFIX.length)).map((k) => (k.startsWith("dir:") ? { dir: true, p: k.slice(4) } : { dir: false, p: k })).filter(({ p }) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes("/"));
   const file = (path) => ({
     ...granted, kind: "file", name: path.split("/").pop(), fake: path,
-    getFile: async () => { const v = read(path) ?? notFound(); return new File([fromB64(v.b64)], path.split("/").pop(), { lastModified: v.mtime }); },
+    getFile: async () => { const v = (await io("read", path)) ?? notFound(); return new File([fromB64(v.b64)], path.split("/").pop(), { lastModified: v.mtime }); },
     createWritable: async () => {
       const parts = [];
-      return { write: async (data) => void parts.push(...bytesOf(data)), close: async () => put(path, toB64(parts)), abort: async () => undefined };
+      return { write: async (data) => void parts.push(...bytesOf(data)), close: () => io("put", path, toB64(parts)), abort: async () => undefined };
     },
   });
   const dir = (path) => ({
     ...granted, kind: "directory", name: path === "folder" ? "smoke-folder" : path.split("/").pop(), fake: `dir:${path}`,
     getDirectoryHandle: async (name, { create = false } = {}) => {
       const p = `${path}/${name}`;
-      if (!isDir(p)) { if (!create) notFound(); sessionStorage.setItem(`${PREFIX}dir:${p}`, "1"); }
+      if (!(await io("isDir", p))) { if (!create) notFound(); await io("mkdir", p); }
       return dir(p);
     },
     getFileHandle: async (name, { create = false } = {}) => {
       const p = `${path}/${name}`;
-      if (!read(p)) { if (!create) notFound(); put(p, ""); }
+      if (!(await io("read", p))) { if (!create) notFound(); await io("put", p, ""); }
       return file(p);
     },
-    async *entries() { for (const c of children(path)) yield [c.p.split("/").pop(), c.dir ? dir(c.p) : file(c.p)]; },
-    removeEntry: async (name) => { sessionStorage.removeItem(PREFIX + `${path}/${name}`); sessionStorage.removeItem(`${PREFIX}dir:${path}/${name}`); },
+    async *entries() { for (const c of await io("children", path)) yield [c.p.split("/").pop(), c.dir ? dir(c.p) : file(c.p)]; },
+    removeEntry: (name) => io("remove", `${path}/${name}`),
   });
-  if (!sessionStorage.getItem(`${PREFIX}seeded`)) {
-    for (const [path, b64] of Object.entries(seed)) {
-      put(path, b64);
-      const parts = path.split("/");
-      for (let i = 1; i < parts.length; i++) sessionStorage.setItem(`${PREFIX}dir:${parts.slice(0, i).join("/")}`, "1");
-    }
-    sessionStorage.setItem(`${PREFIX}seeded`, "1");
-  }
-  window.smokeDisk = { put };
   window.showDirectoryPicker = async () => dir("folder");
   window.showSaveFilePicker = async ({ suggestedName }) => file(`local/${suggestedName}`);
   const revive = (marker) => (marker.startsWith("dir:") ? dir(marker.slice(4)) : file(marker));
@@ -380,7 +393,9 @@ async function passportRun(browser) {
 
   const context = await browser.newContext();
   const seed = { "folder/app/manifest.json": b64(manifest), [`folder/app/${bundleName}`]: Buffer.from(bundle).toString("base64"), "folder/workspace.json": b64(workspace) };
-  await context.addInitScript(fakeDisk, { seed });
+  const disk = nodeDisk(seed);
+  await context.exposeBinding("smokeDiskIo", disk.call);
+  await context.addInitScript(fakeDisk);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(String(err)));
@@ -407,8 +422,7 @@ async function passportRun(browser) {
   check("enrol: the invite opens and the passport is offered for saving", await shows("#save-passport"), await message());
   await page.click("#save-passport");
   check("enrol: the app starts with the passport's keys", await shows("#note"), await message());
-  const saved = await page.evaluate(() => sessionStorage.getItem("smoke-disk:local/sam.passport.json"));
-  check("enrol: the passport is saved on the user's side, not in the folder", saved !== null);
+  check("enrol: the passport is saved on the user's side, not in the folder", disk.read("local/sam.passport.json") !== null && disk.read("folder/sam.passport.json") === null);
 
   await page.reload();
   check("reload: the remembered passport asks for the passphrase", await shows("#passphrase"));
@@ -426,7 +440,7 @@ async function passportRun(browser) {
     ["another workspace", otherWorkspace, "This passport is for a different workspace."],
     ["an out-of-date passport", rotated, "Your passport is out of date. Ask the admin for a new invite."],
   ]) {
-    await page.evaluate((content) => window.smokeDisk.put("folder/workspace.json", content), b64(text));
+    disk.put("folder/workspace.json", b64(text));
     await page.reload();
     await shows("#passphrase");
     await unlockWith(OWN_PASS);
