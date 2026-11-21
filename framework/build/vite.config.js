@@ -34,8 +34,10 @@ function definitionPlugin(definition) {
 // Build targets (ADR-0005 section 1), chosen with --mode:
 //   bootstrap  <outDir>/bootstrap.html        one HTML file: the loader and the public signing key
 //   app        <outDir>/app/<id>-<version>.js one ES module, styles included, run by the bootstrap
+//   admin      <outDir>/admin.html            one HTML file: the admin page, without the loader (OUT-10)
 // `vite` (dev) serves masters/dev.html: the app directly, without the loader.
-// Every name comes from `definition`; release.js renames bootstrap.html to <id>.html.
+// Every name comes from `definition`; release.js renames bootstrap.html to <id>.html
+// and admin.html to <id>-admin.html.
 // The entry pages live in masters/ because the project's filing hook only
 // accepts HTML documents there or in an epic folder.
 export function appConfig({ definition, version, mode, outDir }) {
@@ -69,11 +71,19 @@ export function appConfig({ definition, version, mode, outDir }) {
         emptyOutDir: true,
         // not Vite's library mode: that leaves ES modules unminified
         rollupOptions: {
-          input: here("../../app/src/bundle.tsx"),
+          input: here("../../app/src/main.tsx"),
           preserveEntrySignatures: "exports-only",
           output: { format: "es", entryFileNames: names.bundleFile(version), codeSplitting: false },
         },
       },
+    };
+  }
+  if (mode === "admin") {
+    return {
+      ...shared,
+      plugins: [definitionPlugin(definition), viteSingleFile()],
+      define: { ...shared.define, __APP_DEFINITION__: JSON.stringify(definition) },
+      build: { target: "es2022", outDir, emptyOutDir: false, rollupOptions: { input: here("../../masters/admin.html") } },
     };
   }
   return { ...shared, plugins: [definitionPlugin(definition), react(), tailwindcss()] };

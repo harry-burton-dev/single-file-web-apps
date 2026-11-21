@@ -230,3 +230,27 @@ test("the thresholds are options", async () => {
   await w.run([a, b], 3 * MIN, 5000);
   assert.equal(a.health().state, "not-reaching-peers");
 });
+
+test("health judges a colleague by when this device last saw them, not by the colleague's clock", async () => {
+  const DAY = 24 * 60 * MIN;
+  const w = await makeWorld();
+  const a = await w.device(A);
+  const behind = await w.device(B, { clock: { now: () => w.clock.now() - 40 * DAY } });
+  for (let i = 0; i < 5; i++) {
+    edit(behind, `b${i}`, i);
+    await w.run([a, behind], 10000);
+  }
+  let p = a.health().peers[B];
+  assert.equal(p.active, true, "a colleague 40 days behind who is writing now is active");
+  assert.ok(w.clock.now() - p.lastHeardAt <= 10000, "last heard is on this device's clock");
+
+  const C = "kim-cccccccc";
+  const ahead = await w.device(C, { clock: { now: () => w.clock.now() + 2 * DAY } });
+  edit(ahead, "c", 1);
+  await w.run([a, ahead], 10000);
+  assert.equal(a.health().peers[C].active, true);
+  await w.run([a], 20 * MIN, 30000); // only A ticks: both colleagues fall silent
+  p = a.health().peers[C];
+  assert.equal(p.active, false, "a colleague whose clock is ahead and who has been silent past the window is not active");
+  assert.ok(w.clock.now() - p.lastHeardAt > 15 * MIN);
+});

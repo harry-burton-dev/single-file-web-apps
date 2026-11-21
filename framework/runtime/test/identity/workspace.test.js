@@ -4,13 +4,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createSeededRandom } from "../../../engine/test/helpers/memfolder.js";
 import { workspaceFileFor, checkKeyring, WORKSPACE_FILE } from "../../identity/workspace.js";
-import { handMadeKeyring } from "./_keyring.js";
+import { newKeyring, rotateKeyring } from "../../identity/admin.js";
 
 const random = createSeededRandom(11);
 const b64len = (s) => atob(s).length;
 
 test("the file lists the workspace id and one check per key id, and no key material", async () => {
-  const keyring = handMadeKeyring(random, [1, 2]);
+  const keyring = rotateKeyring(newKeyring({ random }), { random });
   const text = await workspaceFileFor(keyring, { random });
   assert.equal(WORKSPACE_FILE, "workspace.json");
   const parsed = JSON.parse(text);
@@ -25,22 +25,22 @@ test("the file lists the workspace id and one check per key id, and no key mater
 });
 
 test("ok: the keyring holds every key the workspace has issued", async () => {
-  const keyring = handMadeKeyring(random, [1, 2]);
+  const keyring = rotateKeyring(newKeyring({ random }), { random });
   assert.equal(await checkKeyring(keyring, await workspaceFileFor(keyring, { random })), "ok");
 });
 
 test("out-of-date: after a rotation the keyring lacks the new key", async () => {
-  const rotated = handMadeKeyring(random, [1, 2]);
+  const rotated = rotateKeyring(newKeyring({ random }), { random });
   const old = { ...rotated, current: 1, keys: rotated.keys.filter((k) => k.id === 1) };
   assert.equal(await checkKeyring(old, await workspaceFileFor(rotated, { random })), "out-of-date");
 });
 
 test("other-workspace: the ids differ, or a key does not open its check", async () => {
-  const ours = handMadeKeyring(random);
+  const ours = newKeyring({ random });
   const text = await workspaceFileFor(ours, { random });
-  assert.equal(await checkKeyring(handMadeKeyring(random), text), "other-workspace");
+  assert.equal(await checkKeyring(newKeyring({ random }), text), "other-workspace");
   // A forged keyring claiming our id but holding another key 1.
-  const forged = { ...handMadeKeyring(random), workspace: ours.workspace };
+  const forged = { ...newKeyring({ random }), workspace: ours.workspace };
   assert.equal(await checkKeyring(forged, text), "other-workspace");
   // A key id this workspace never issued.
   const extra = { ...ours, current: 2, keys: [...ours.keys, { id: 2, raw: random.bytes(32) }] };
@@ -48,7 +48,7 @@ test("other-workspace: the ids differ, or a key does not open its check", async 
 });
 
 test("bad-file: anything that is not a format 1 workspace file", async () => {
-  const keyring = handMadeKeyring(random);
+  const keyring = newKeyring({ random });
   const good = JSON.parse(await workspaceFileFor(keyring, { random }));
   const bad = [
     "", "not json", "[]", "{}",

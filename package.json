@@ -7,15 +7,20 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\"",
+    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\" && npm run test:shell",
     "typecheck": "tsc --noEmit -p framework && tsc --noEmit -p app",
-    "build": "npm run build:bootstrap && npm run build:app",
+    "build": "npm run build:bootstrap && npm run build:app && npm run build:admin && npm run size",
     "build:app": "vite build --config framework/build/vite.config.js --mode app",
+    "build:admin": "vite build --config framework/build/vite.config.js --mode admin",
     "build:bootstrap": "vite build --config framework/build/vite.config.js --mode bootstrap",
+    "size": "node framework/build/size-budget.js",
     "dev": "vite --config framework/build/vite.config.js",
     "smoke": "node framework/build/smoke.js",
+    "two-users": "node --test framework/build/test/stand-in-folder.test.js && node framework/build/two-users.js",
     "release": "node framework/build/release.js",
     "keygen": "node framework/build/keygen.js",
-    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\""
+    "check:no-test-key": "node framework/build/no-test-key.js",
+    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\"",
+    "test:shell": "vitest run --config framework/vitest.config.js"
   }
 }

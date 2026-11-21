@@ -21,6 +21,9 @@ const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const TABLE = /^[A-Za-z0-9][A-Za-z0-9-]*$/; // the engine's folder-name rule
 const FIELD = /^[A-Za-z][A-Za-z0-9_]*$/; // keeps clear of "_deleted"-style row metadata and the key separator
 const RESERVED = new Set(["id", "deleted"]);
+// Tables the framework itself syncs (USERS_TABLE in identity/admin.js, decision D17).
+// Compared case-insensitively, as on Windows and OneDrive "Users" and "users" are one folder.
+const FRAMEWORK_TABLES = new Set(["users"]);
 const KINDS = new Set(["latest", "ask", "text"]);
 const TYPES = new Set(["string", "number", "boolean"]);
 
@@ -45,6 +48,7 @@ export function assertAppDefinition(def: AppDefinition): void {
   if (!def.tables || typeof def.tables !== "object") throw new Error("App tables must be an object");
   for (const [table, schema] of Object.entries(def.tables)) {
     if (!TABLE.test(table)) throw new Error(`Table name ${JSON.stringify(table)} must be letters, digits and hyphens, starting with a letter or digit`);
+    if (FRAMEWORK_TABLES.has(table.toLowerCase())) throw new Error(`Table name ${JSON.stringify(table)} is reserved: the framework keeps its own ${table.toLowerCase()} table`);
     if (!Number.isInteger(schema?.version) || schema.version < 1) throw new Error(`Table ${table}: version must be a whole number of 1 or more`);
     for (const [field, fieldDef] of Object.entries(schema.fields ?? {})) assertField(table, field, fieldDef);
   }

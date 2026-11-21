@@ -95,7 +95,7 @@ The activity log, traces and metrics are local to each device and disposable. Th
 Sections 3 to 5 are implemented in the engine and checked by simulation (properties P13 to P15 in the test spec). Points where the build is more specific than the text above:
 
 - **Detail level.** Tracing has three levels: `full` (every step), `summary` (counts only) and `off`. Metrics work at every level. The level never changes what the engine does.
-- **History size.** The newest 500 traces are held in memory and about 200 survive a reload. A crash can lose the last 10. A stored trace keeps its first 100 steps.
+- **History size.** The newest 500 traces are held in memory and about 200 non-routine traces survive a reload. Routine traces (a scheduled scan or status write that went fine, with no apply, delete or error) stay in memory only, so an idle device writes nothing to its store. A crash can lose the last 10. A stored trace keeps its first 100 steps.
 - **Acknowledgement** is a colleague's status file showing they have read this device's latest chunk, whether or not that chunk is finished.
 - **"Not reaching colleagues"** needs at least one colleague active in the last 15 minutes, and every such colleague to have gone more than 10 minutes without acknowledging. With nobody active it is never shown.
 - **"Folder disconnected"** is shown when the folder cannot be listed or a permission error occurs, and clears on the next successful operation of the same kind.

@@ -1,12 +1,11 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./app";
-import "./index.css";
+import { mount, TrellisApp } from "@trellis/framework";
+import config from "../app.config";
+import css from "./index.css?inline";
+import { NoteScreen } from "./note-screen";
 
-const root = document.getElementById("app");
-if (!root) throw new Error("Missing #app element");
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+export const start = mount(
+  <TrellisApp config={config}>
+    <NoteScreen />
+  </TrellisApp>,
+  css,
 );
