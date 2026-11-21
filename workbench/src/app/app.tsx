@@ -7,6 +7,7 @@ import { loadFolder, pickFolder, regrant, type FolderState } from "@/host/folder
 import { startHost } from "@/host/host";
 import { openDb, type KeyValueDb } from "@/host/idb";
 import { ConnectionIndicator } from "./connection-indicator";
+import { loader } from "./loader-services";
 import { testWorkspaceKey } from "./test-key";
 import { SyncInspector } from "./sync-inspector";
 import { useSharedText, useSync } from "./use-engine";
@@ -38,6 +39,7 @@ async function begin(db: KeyValueDb, folder: FolderState, user: string): Promise
   await db.set(USER_KEY, user);
   const started = await startHost({ root: folder.handle, db, user, key: await testWorkspaceKey(), keyId: 0, tables: { [TABLE]: "yjs" } });
   if (!started.ok) return { phase: "setup", db, folder, user, message: "Workbench is already open in another tab." };
+  void loader()?.checkForUpdate(folder.handle);
   return { phase: "running", engine: started.engine, deviceId: started.deviceId, folderName: folder.handle.name };
 }
 
