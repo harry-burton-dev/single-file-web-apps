@@ -115,7 +115,7 @@ Until the admin app exists, a release is produced by GitHub Actions, not by the 
 - **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `<id>-1.2.0.zip`. The zip is the `<name>/` folder of section 2, ready to copy into the shared folder. `framework/build/release.js` writes the folder, zip name and release title to the workflow's outputs, so the workflow holds no app name.
 - **Keys:** `npm run keygen` (`framework/build/keygen.js`) prints a key pair. The public key is the repository variable `TRELLIS_PUBLIC_KEY`; the private key is the repository secret `TRELLIS_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
 - **Serial:** the build time in seconds.
-- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag. The adversarial probes (`npm run probes`) are not part of CI; three of them still fail.
+- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag.
 
 ## Options Considered
 

@@ -16,6 +16,8 @@ jobs:
         run: npm ci
       - name: Engine and runtime tests
         run: npm test
+      - name: Adversarial probes (G10)
+        run: npm run probes
       - name: Typecheck
         run: npm run typecheck
       - name: Build with size budgets (G11)

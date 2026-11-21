@@ -223,12 +223,11 @@ An independent test pass found eight faults the simulation had missed. All eight
   - *Repair.* If the damaged file is the chunk the session is still writing, it is written again from memory. Otherwise the device publishes one snapshot of the whole table. What is owed is kept in the local store, so it survives a restart. Repairs for one table are at least `ownCheckMs` apart, so two profiles that wrongly share a device id cannot rewrite each other's file in a loop.
   - *Health.* While a repair is owed, health reports `saving` with `repairing: true`, never `saved`.
   - *Cost.* A browser profile restored from backup, or a crash between a write and the store update that records it, looks the same as a rollback and costs one extra snapshot. To keep that rare, the record of a write is now stored as part of the save, not at the next scan.
+- **A crash after an edit loses nothing the engine accepted** (P14a, P14b). The engine emits `accepted` once an edit's pending write is in the local store. An edit not yet accepted when the device crashes may be lost, but only on both devices alike; an accepted edit is on the restarted device and on the colleague. The probes were corrected to the test spec's rule for P3, "a change is durable once the engine has accepted it".
+- **No idle growth of stored traces** (P15). Routine traces (a scheduled scan or status with outcome ok and nothing applied, deleted or failed) are still emitted but stay in memory, so an idle device's `trace/seg/*` keys stop growing.
+- **Health judges peers on this device's clock.** The health display's "active" and "last heard" now come from `status-seen`, as deletion already did, so a colleague's wrong clock cannot mislabel their device.
 
-**Open**
-
-- **Crash within the first few store calls after an edit** loses that edit. Narrowed but not closed; unspecified.
-- **Idle growth of stored trace segments** (`trace/seg/*` keys) over thousands of idle ticks.
-- The health display still uses the colleague's `lastActiveAt` for "active", so a wrong clock can mislabel a device there. It does not affect deletion.
+All probes (`npm run probes`) pass and run in CI and in the release workflow.
 
 ## Action Items
 

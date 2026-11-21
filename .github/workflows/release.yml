@@ -26,6 +26,7 @@ jobs:
           npm version --workspace app --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
           npm run typecheck
           npm test
+          npm run probes
       - name: From-disk smoke test
         run: |
           npm install --no-save playwright
