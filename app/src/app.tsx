@@ -299,7 +299,7 @@ function RunningView({ session, onChange }: { session: Running; onChange: (next:
   };
 
   return (
-    <ShellProvider engine={session.engine}>
+    <ShellProvider engine={session.engine} onUpdate={loader()?.onUpdate}>
       <div className="flex flex-col gap-4">
         <HealthIndicator />
         <p className="text-xs text-muted-foreground">
