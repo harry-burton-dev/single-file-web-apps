@@ -2,6 +2,7 @@
 // through the registry for a given app definition. Not a test file.
 import { makeWorld } from "../../engine/test/engine/_harness.js";
 import { openRegistry } from "../registry.ts";
+import { createData } from "../runtime.ts";
 
 export const engineTables = (config) => Object.fromEntries(Object.keys(config.tables).map((name) => [name, "yjs"]));
 
@@ -14,6 +15,12 @@ export async function makeDataWorld(config, options) {
       const engine = await world.device(deviceId);
       const registry = openRegistry(engine, config, { deviceId, user: deviceId.split("-")[0], clock: world.clock, random: world.random });
       return { engine, registry };
+    },
+    /** A device's engine and its data runtime, with the world's clock and seeded random. */
+    async data(deviceId, commands) {
+      const engine = await world.device(deviceId);
+      const data = createData({ engine, config, commands, deviceId, user: deviceId.split("-")[0], clock: world.clock, random: world.random });
+      return { engine, data };
     },
   });
 }
