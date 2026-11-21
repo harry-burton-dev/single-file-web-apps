@@ -100,7 +100,7 @@ await engine.tick()       // do whatever is due: save, scan, status, compaction
 await engine.flush()      // save now (window hidden/closed)
 await engine.scan()       // read the folder now
 engine.status()           // { pending, lastSaveAt, lastScanAt, devices: {...}, errors: [...] }
-engine.on(event, fn)      // "received" {table, device, writtenAt}, "saved", "error"
+engine.on(event, fn)      // "accepted" {table}, "received" {table, device, writtenAt}, "saved", "error"
 await engine.close()      // flush then stop
 await engine.reseed()     // write full snapshots of every table into own folders
 ```

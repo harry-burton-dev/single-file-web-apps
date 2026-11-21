@@ -110,7 +110,8 @@ function subscribeLocal(ctx, T) {
     T.pending = [...T.pending, entry];
     refreshHealth(ctx);
     rt.localChain = rt.localChain.then(async () => {
-      await addPending(ctx, T, entry);
+      // "A change is durable once the engine has accepted it" (test spec P3): accepted = the pending write is in the store.
+      if (await addPending(ctx, T, entry)) ctx.emit("accepted", { table: T.name });
       try {
         await logUpdates(ctx, T, [entry.bytes]);
       } catch (err) {
