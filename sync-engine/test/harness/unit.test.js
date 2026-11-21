@@ -231,5 +231,5 @@ test("fault profiles and variants resolve", () => {
   assert.deepEqual(Object.keys(PROFILES), ["none", "lag", "rough", "outage", "hostile"]);
   assert.throws(() => resolveProfile("nope"));
   assert.equal(getVariant("ack-none").options.compaction.ackRule, "none");
-  assert.equal(VARIANTS.length, 12);
+  assert.equal(VARIANTS.length, 10);
 });

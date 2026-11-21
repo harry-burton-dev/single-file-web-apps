@@ -8,11 +8,7 @@ export const GCM_TAG_BYTES = 16;
 // ADR-0001 section 7. A conflict-copy suffix (-DEVICE) is allowed on both.
 export const CHUNK_RE = /^(\d{6})(-.+)?\.ywb$/;
 export const SNAP_RE = /^snap-(\d{8}T\d{6}Z)(-.+)?\.ywb$/;
-// Whole-file layouts: one state file per device, or one shared file per table.
-// A conflict-copy suffix (-DEVICE) is allowed on both.
-export const STATE_RE = /^state(-.+)?.ywb$/;
-export const TABLE_FILE_RE = /^table(-.+)?.ywb$/;
-export const LAYOUTS = Object.freeze(["chunks", "state-per-device", "shared-file"]);
+export const LAYOUTS = Object.freeze(["chunks"]);
 export const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9-]*$/; // table and device names
 
 // Highest chunk number the 6-digit file-name rule can express.

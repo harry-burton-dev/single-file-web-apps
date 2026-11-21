@@ -22,8 +22,6 @@ export const VARIANTS = Object.freeze([
   variant("compact-200", "compact after more than 200 chunks (the former default)", { compaction: { chunkThreshold: 200 } }),
   variant("compact-no-min-age", "snapshots may supersede at once (minSnapshotAgeMs 0)", { compaction: { minSnapshotAgeMs: 0 } }),
   variant("ack-none", "delete as soon as a snapshot exists (expected unsafe)", { compaction: { ackRule: "none" } }, "yjs", { expectedUnsafe: true }),
-  variant("layout-state-per-device", "one rewritten state file per device", { layout: "state-per-device" }),
-  variant("layout-shared-file", "one file per table written by all devices (P8 does not apply)", { layout: "shared-file" }, "yjs", { sharedPaths: true }),
 ]);
 
 export const VARIANT_NAMES = Object.freeze(VARIANTS.map((v) => v.name));

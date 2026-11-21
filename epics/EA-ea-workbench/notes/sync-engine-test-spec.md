@@ -167,7 +167,7 @@ In the simulator `offline` and `folder-disconnected` have no cause, so seeing ei
 
 | Option | Default | Variants |
 |---|---|---|
-| `layout` | `"chunks"` | `"state-per-device"` (one rewritten state file per device), `"shared-file"` (one file per table written by all) |
+| `layout` | `"chunks"` | none: the `state-per-device` and `shared-file` layouts were removed on 2026-11-21 once the chunks design was settled |
 | `chunkContent` | `"merged"` | `"framed"` (keep each update separately) |
 | `sealBytes` | 65536 | 16384, 262144 |
 | `newChunkPerSession` | `true` | `false` (continue the last unsealed chunk) |
