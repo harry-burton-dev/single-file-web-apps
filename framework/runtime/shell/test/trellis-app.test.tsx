@@ -206,6 +206,12 @@ describe("running", () => {
     expect(checkForUpdate).toHaveBeenCalledWith(folderHandle);
   });
 
+  test("shows the update notice from the loader", async () => {
+    const onUpdate = (listener: (result: { status: "updated"; version: string }) => void) => (listener({ status: "updated", version: "9.9.9" }), () => undefined);
+    await running({ loader: () => ({ checkForUpdate: async () => ({ status: "current", version: "1" }), onUpdate }) as never });
+    expect(screen.getByText(s.updateReady("9.9.9"))).toBeTruthy();
+  });
+
   test("an error in the app's screens shows the error screen", async () => {
     const Broken = (): never => {
       throw new TypeError("table went missing");

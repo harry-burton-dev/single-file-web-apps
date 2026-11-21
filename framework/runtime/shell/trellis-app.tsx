@@ -79,7 +79,7 @@ export function TrellisApp({ config, strings, children, services = realServices 
   const engine = state.phase === "running" ? state.session.engine : undefined;
 
   return (
-    <ShellProvider engine={engine} strings={strings}>
+    <ShellProvider engine={engine} strings={strings} onUpdate={engine && services.loader()?.onUpdate}>
       <main id="trellis-shell" aria-label={config.name} className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
         {state.phase === "starting" && (
           <p id="loading" role="status" className="text-sm">

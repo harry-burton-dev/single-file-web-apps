@@ -14,6 +14,7 @@ import type { HealthState, Trace } from "../../host/engine-types";
 import { TrellisApp } from "../trellis-app";
 import { PassportError } from "../../identity/passport.js";
 import { DEVICE, FOLDER, fakeServices, folderHandle, PASSPORT_FILE, USER } from "./helpers/fake-services";
+import type { UpdateResult } from "../../loader/contract";
 
 afterEach(() => {
   cleanup();
@@ -120,6 +121,19 @@ test("sentinel strings: the error screen uses no other wording", () => {
   );
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(strayWords(wording(), DATA)).toEqual([]);
+});
+
+test("sentinel strings: the update notice, ready and refused, uses no other wording", () => {
+  const strings = sentinel(defaultStrings);
+  for (const result of [
+    { status: "updated", version: "1.1.0" },
+    { status: "rejected", code: "signature-invalid", message: "refusal" },
+  ] as UpdateResult[]) {
+    render(<ShellProvider strings={strings} onUpdate={(listener) => (listener(result), () => undefined)} />);
+    expect(screen.getByRole("status")).toBeTruthy();
+    expect(strayWords(wording(), [...DATA, "1.1.0", "refusal"]), result.status).toEqual([]);
+    cleanup();
+  }
 });
 
 test("the sentinel check catches hard-coded wording", () => {
