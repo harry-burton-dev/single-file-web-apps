@@ -71,9 +71,11 @@ function buildContext(input) {
     skipNoted: new Set(), lastSave: null, lastScan: null, selfStatus: null,
   };
   const metrics = createMetrics({ limit: options.trace.memoryLimit });
+  // Extra keys to read with, so old chunks stay readable after a rotation; writing always uses key and keyId.
+  const readKeys = input.keys instanceof Map ? [...input.keys] : Object.entries(input.keys ?? {}).map(([id, k]) => [Number(id), k]);
   const ctx = {
     cfg: null, rt, tables: new Map(), emit: emitter.emit, on: emitter.on, metrics,
-    keys: new Map([[input.keyId ?? 0, input.key]]),
+    keys: new Map([...readKeys, [input.keyId ?? 0, input.key]]),
     recordError(scope, error, extra = {}) {
       const entry = { at: clock.now(), scope, ...describe(error), ...extra };
       rt.errors = [...rt.errors, entry].slice(-options.maxErrors);

@@ -8,3 +8,6 @@ export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
 export type { AppDefinition, TableSchema } from "./runtime/definition";
 export { appNames } from "./runtime/names";
 export type { Register } from "./data/schema";
+export { enrol, unlock, PassportError } from "./runtime/identity/passport.js";
+export { KeyFileError } from "./runtime/identity/keyfile.js";
+export type { Identity } from "./runtime/identity/types";

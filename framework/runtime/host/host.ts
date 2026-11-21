@@ -21,6 +21,8 @@ export interface HostConfig {
   user: string;
   key: CryptoKey;
   keyId: number;
+  /** Extra keys to read with, by key id, so data from before a rotation stays readable. */
+  keys?: Map<number, CryptoKey>;
   app: AppDefinition;
 }
 
@@ -86,6 +88,7 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
     store: engineStore(config.db),
     key: config.key,
     keyId: config.keyId,
+    keys: config.keys,
     user: config.user,
     deviceId,
     adapters: { yjs: createYjsAdapter({ random }) },
