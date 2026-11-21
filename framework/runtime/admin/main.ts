@@ -203,7 +203,7 @@ async function startSession(db: KeyValueDb, root: FileSystemDirectoryHandle, key
     say("The admin page is already open in another tab. Use that tab, or close it and try again.");
     return null;
   }
-  const users = openTable({ adapter: undefined, doc: started.engine.table(USERS_TABLE), schema: USERS_SCHEMA, deviceId: started.deviceId, user: ENGINE_USER, clock: { now: () => Date.now() } }) as unknown as UsersTable;
+  const users = openTable({ adapter: undefined, doc: started.engine.table(USERS_TABLE), schema: USERS_SCHEMA, deviceId: started.deviceId, user: ENGINE_USER, clock: { now: () => Date.now() }, migrations: {} }) as unknown as UsersTable;
   return { root, keyring, engine: started.engine, users, stop: started.stop };
 }
 
