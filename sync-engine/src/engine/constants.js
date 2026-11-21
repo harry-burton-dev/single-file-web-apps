@@ -42,7 +42,7 @@ export const DEFAULT_OPTIONS = Object.freeze({
   health: Object.freeze({ peerActiveWindowMs: 15 * 60 * 1000, ackTimeoutMs: 10 * 60 * 1000 }),
   compaction: Object.freeze({
     enabled: true,
-    chunkThreshold: 200,
+    chunkThreshold: 50,
     snapshotMaxAgeMs: 7 * DAY_MS,
     minSnapshotAgeMs: DAY_MS,
     activeWindowMs: 30 * DAY_MS,
