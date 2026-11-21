@@ -36,3 +36,19 @@ test("assertAppDefinition refuses bad ids and empty names", () => {
 test("the repository's own definition is valid", () => {
   assert.doesNotThrow(() => assertAppDefinition(definition));
 });
+
+test("startHost asks for a device lock named after the app's id", async () => {
+  const { startHost } = await import("../host/host.ts");
+  const { installFakeBrowser, hostConfig } = await import("./helpers/fake-browser.js");
+  for (const id of ["acme-notes", "farm2"]) {
+    const browser = installFakeBrowser();
+    try {
+      const started = await startHost(await hostConfig({ id, name: "Some App", tables: { notes: { version: 1 } } }));
+      assert.equal(started.ok, true);
+      await started.stop();
+      assert.deepEqual(browser.lockNames, [`${id}-device-${started.deviceId}`]);
+    } finally {
+      browser.restore();
+    }
+  }
+});
