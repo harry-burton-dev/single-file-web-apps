@@ -21,7 +21,15 @@ export interface LoaderServices {
   /**
    * Call once the shared folder is connected. Checks the folder for a new
    * signed version now and every 15 minutes after; the bootstrap tells the
-   * user when one is ready or was refused.
+   * user when one is ready or was refused, unless the app has subscribed
+   * through onUpdate.
    */
   checkForUpdate(root: FileSystemDirectoryHandle): Promise<UpdateResult>;
+  /**
+   * Hear each update check's result. While anything is subscribed the
+   * bootstrap draws no note of its own. A subscriber that arrives after a
+   * check hears its result at once. Returns the unsubscribe function.
+   * Optional: added within contract 1, before any bootstrap was handed out.
+   */
+  onUpdate?(listener: (result: UpdateResult) => void): () => void;
 }

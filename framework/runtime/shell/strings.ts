@@ -45,8 +45,13 @@ export interface ShellStrings {
   errorTitle: string;
   openDiagnostics: string;
 
-  // The first-run flow (OUT-36), the update notice (OUT-37) and the conflict
-  // prompt (OUT-38) add their entries here.
+  /** The update notice: a new version is cached and runs on the next load. */
+  updateReady: (version: string) => string;
+  loadUpdate: string;
+  /** A release was refused; the reason is the loader's own message. */
+  updateRefused: (reason: string) => string;
+
+  // The first-run flow (OUT-36) and the conflict prompt (OUT-38) add their entries here.
 }
 
 export const defaultStrings: ShellStrings = {
@@ -89,6 +94,10 @@ export const defaultStrings: ShellStrings = {
 
   errorTitle: "Something went wrong",
   openDiagnostics: "Open diagnostics",
+
+  updateReady: (version) => `Version ${version} is ready.`,
+  loadUpdate: "Load it",
+  updateRefused: (reason) => `A new version was not installed. ${reason}`,
 };
 
 /** What an app passes to reword the shell: any entries, and any part of a health state's wording. */
