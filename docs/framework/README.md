@@ -67,6 +67,8 @@ Not in the rubric for v0.1.0: plugins (ADR-0006), a second release channel, and 
 | [S5 Durability](s5-durability.md) | Engine faults closed, schema versions, backup and restore | G9, G10 | S1 (engine part: none) |
 | [S6 New project and release](s6-new-project-and-release.md) | `create` command, rubric runner, quickstart, release v0.1.0 | G1, G2, G8, G12, G13 | all |
 
+In Linear the epics are projects TR1 to TR6 (S1 is TR1, and so on) in the Outer-Pale team.
+
 Order: S1 first. S2, S3 and the engine half of S5 can run side by side. S4 next. S6 last.
 
 ## 5. Rules for running this unattended
