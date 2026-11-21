@@ -71,7 +71,7 @@ export function appConfig({ definition, version, mode, outDir }) {
         emptyOutDir: true,
         // not Vite's library mode: that leaves ES modules unminified
         rollupOptions: {
-          input: here("../../app/src/bundle.tsx"),
+          input: here("../../app/src/main.tsx"),
           preserveEntrySignatures: "exports-only",
           output: { format: "es", entryFileNames: names.bundleFile(version), codeSplitting: false },
         },

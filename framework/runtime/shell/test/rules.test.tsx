@@ -2,7 +2,7 @@
 // chosen" 2): every word comes from the strings file, and no colour is
 // written except through the project's design tokens.
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defaultStrings, type ShellStringOverrides } from "../strings";
@@ -11,6 +11,9 @@ import { clockTime } from "../format";
 import { emptyMetrics, fakeEngine } from "./helpers/fake-engine";
 import { HEALTH_STATES } from "../../../engine/src/engine/health.js";
 import type { HealthState, Trace } from "../../host/engine-types";
+import { TrellisApp } from "../trellis-app";
+import { PassportError } from "../../identity/passport.js";
+import { DEVICE, FOLDER, fakeServices, folderHandle, PASSPORT_FILE, USER } from "./helpers/fake-services";
 
 afterEach(() => {
   cleanup();
@@ -175,4 +178,90 @@ test("the colour check catches each kind", () => {
     expect(COLOUR[kind].re.test(line), line).toBe(true);
   }
   expect(COLOUR.some(({ re }) => re.test(`"bg-destructive/10 text-muted-foreground border-border bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]"`))).toBe(false);
+});
+
+test("sentinel strings: every first-run screen uses no other wording", async () => {
+  const strings = sentinel(defaultStrings);
+  const config = { id: "test-app", name: "Test App", tables: {} };
+  const data = [...DATA, FOLDER, PASSPORT_FILE, USER, DEVICE, "Test App", __APP_VERSION__, __BUILT_AT__, "Error: a written-for-users error", "a written-for-users error", "the app's screen"];
+  const seen: string[] = [];
+  const look = (label: string) => {
+    seen.push(label);
+    expect(strayWords(wording(), data), label).toEqual([]);
+  };
+  const said = () => new PassportError("other-workspace");
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  // starting, then failed (local storage unavailable)
+  let fakes = fakeServices({ openDb: () => new Promise(() => undefined) });
+  render(<TrellisApp config={config} services={fakes.services} strings={strings} />);
+  look("starting");
+  cleanup();
+  fakes = fakeServices({ openDb: async () => Promise.reject(new Error("a written-for-users error")) });
+  render(<TrellisApp config={config} services={fakes.services} strings={strings} />);
+  await screen.findByRole("alert");
+  look("failed");
+  cleanup();
+
+  // folder: none, then needs permission and refused
+  fakes = fakeServices({ loadFolder: async () => ({ status: "none" }) });
+  render(<TrellisApp config={config} services={fakes.services} strings={strings} />);
+  await screen.findByRole("button");
+  look("folder none");
+  cleanup();
+  const lapsed = { status: "needs-permission", handle: folderHandle } as const;
+  fakes = fakeServices({ loadFolder: async () => lapsed, regrant: async () => lapsed });
+  render(<TrellisApp config={config} services={fakes.services} strings={strings} />);
+  fireEvent.click(await screen.findByRole("button"));
+  await screen.findByRole("alert");
+  look("folder refused");
+  cleanup();
+
+  // passport, invite form, invite refused, invite accepted, then running with the banner
+  fakes = fakeServices({ folderPermission: async () => "prompt" });
+  let enrolOk = false;
+  const enrol = fakes.services.enrol;
+  fakes.services.enrol = async (args) => (enrolOk ? enrol(args) : Promise.reject(Object.assign(said(), { message: "a written-for-users error" })));
+  render(
+    <TrellisApp config={config} services={fakes.services} strings={strings}>
+      <p>the app's screen</p>
+    </TrellisApp>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: /haveInvite/ }));
+  look("invite form");
+  fireEvent.click(screen.getByRole("button", { name: /openInvite/ }));
+  await screen.findByRole("alert");
+  look("invite message");
+  enrolOk = true;
+  fireEvent.change(screen.getByLabelText(/inviteFile/), { target: { files: [new File(["x"], "x.json")] } });
+  fireEvent.click(screen.getByRole("button", { name: /openInvite/ }));
+  await screen.findByRole("button", { name: /savePassport/ });
+  look("invite accepted");
+  fireEvent.click(screen.getByRole("button", { name: /savePassport/ }));
+  await screen.findByText("the app's screen");
+  look("running");
+  act(() => fakes.engines[0]!.setHealth({ state: "folder-disconnected" }));
+  await screen.findByRole("region");
+  look("running with the reconnect banner");
+  cleanup();
+
+  // passport chooser, unlock with a message, already open
+  fakes = fakeServices({ startHost: async () => ({ ok: false, reason: "already-open" }) });
+  const unlock = fakes.services.unlock;
+  let unlockOk = false;
+  fakes.services.unlock = async (args) => (unlockOk ? unlock(args) : Promise.reject(Object.assign(said(), { message: "a written-for-users error" })));
+  render(<TrellisApp config={config} services={fakes.services} strings={strings} />);
+  await screen.findByRole("button", { name: /havePassport/ });
+  look("passport");
+  fireEvent.click(screen.getByRole("button", { name: /havePassport/ }));
+  await screen.findByRole("button", { name: /unlock/ });
+  fireEvent.click(screen.getByRole("button", { name: /unlock/ }));
+  await screen.findByRole("alert");
+  look("unlock message");
+  unlockOk = true;
+  fireEvent.click(screen.getByRole("button", { name: /unlock/ }));
+  await screen.findByRole("button", { name: /tryAgain/ });
+  look("already open");
+
+  expect(seen).toHaveLength(12);
 });

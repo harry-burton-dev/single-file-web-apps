@@ -39,7 +39,8 @@ const RELEASE = join(DIST, "smoke-release");
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const names = appNames(definition);
 const bundleName = names.bundleFile(version);
-const APP_HEADING = `${names.title} engine test page`;
+/** The app's shell (OUT-36) is on the page: the bundle ran. */
+const shellShown = (page) => page.locator("#trellis-shell").count().then((n) => n === 1);
 
 const newKey = () => subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
 
@@ -455,14 +456,14 @@ const browser = await chromium.launch();
 try {
   const good = await openPage(browser, { "manifest.json": manifest, [bundleName]: bundle });
   await good.page.click("#boot-connect");
-  await good.page.waitForSelector("#boot", { state: "detached", timeout: 10000 }).catch(() => {});
-  check("first run: the signed bundle is verified and the app starts", (await heading(good.page)) === APP_HEADING, `${await heading(good.page)} / ${await good.page.locator("#boot-message").textContent().catch(() => "")}`);
+  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  check("first run: the signed bundle is verified and the app starts", await shellShown(good.page), `${await heading(good.page)} / ${await good.page.locator("#boot-message").textContent().catch(() => "")}`);
   const shown = await good.page.locator("body").innerText();
   check("the app reports the bundle's version", shown.includes(`Version ${version}`));
 
   await good.page.reload();
-  await good.page.waitForSelector("#boot-connect", { state: "detached", timeout: 10000 }).catch(() => {});
-  check("reload: the app starts from the cache without the folder", (await heading(good.page)) === APP_HEADING, await heading(good.page));
+  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  check("reload: the app starts from the cache without the folder", await shellShown(good.page), await heading(good.page));
   check("no page errors", good.errors.length === 0, good.errors.join(" | "));
   await good.context.close();
 
@@ -470,7 +471,7 @@ try {
   await bad.page.click("#boot-connect");
   await bad.page.waitForFunction(() => document.getElementById("boot-message")?.textContent?.includes("not signed"), null, { timeout: 10000 }).catch(() => {});
   const message = await bad.page.locator("#boot-message").textContent().catch(() => "");
-  check("a manifest signed with another key is refused", message.includes("not signed") && (await heading(bad.page)) === names.title, message);
+  check("a manifest signed with another key is refused", message.includes("not signed") && (await heading(bad.page)) === names.title && !(await shellShown(bad.page)), message);
   await bad.context.close();
 
   await passportRun(browser);

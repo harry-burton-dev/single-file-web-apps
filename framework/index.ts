@@ -13,8 +13,10 @@ export { enrol, unlock, PassportError } from "./runtime/identity/passport.js";
 export { KeyFileError } from "./runtime/identity/keyfile.js";
 export type { Identity } from "./runtime/identity/types";
 export {
-  ShellProvider,
-  HealthIndicator,
+  TrellisApp,
+  type TrellisAppProps,
+  mount,
+  useEngine,
   useHealth,
   defaultStrings,
   Button,
