@@ -12,7 +12,7 @@
 ## Deliver
 
 1. **Workspace creation** (admin page): generates the workspace key (AES-GCM 256) and writes the first `users` record.
-2. **Invites.** The admin enters a name; the page produces an invite file holding the user id and the workspace key, wrapped with a passphrase (Web Crypto only, no WebAssembly). The user opens the app, picks the file, types the passphrase; the key is stored non-extractable in the browser.
+2. **Invites.** The admin enters a name; the page produces an invite file holding the user id and the workspace key, wrapped with a passphrase (Web Crypto only, no WebAssembly). The user opens the app, picks the file, types the passphrase, and chooses their own passphrase; the app saves a passport file on their machine. On every launch the user unlocks the passport with that passphrase; the keys are held in memory for the session, non-extractable, and at rest only in the passport. (Amended 2026-11-21, passport model: TR3 decisions D4 to D6 and D12.)
 3. **Key ids and rotation.** The engine already takes `keyId` and a key map. The admin page can add a new key; old chunks stay readable. Removing a user means rotating the key and re-inviting the others; the page says so.
 4. **Key backup.** The admin can export the workspace key under a passphrase, and the page refuses to finish workspace creation until that export has been downloaded.
 5. **Admin build target.** `admin.html`, a single file that does not go through the loader and works with an empty or broken folder.
@@ -33,7 +33,7 @@
 
 ## Out of scope
 
-Signed per-user changes, single sign-on, recovering a lost workspace key (impossible by design; the backup step exists because of it).
+Signed per-user changes, single sign-on, recovering a lost workspace key without the backup or any passport. (Amended 2026-11-21: the keyring can be rebuilt from any passport and its passphrase; the backup step still exists so the admin never depends on that.)
 
 ## Stop and report if
 
