@@ -5,7 +5,9 @@ export { loadFolder, pickFolder, regrant, forgetFolder, type FolderState } from 
 export { openDb, type KeyValueDb } from "./runtime/host/idb";
 export type { Engine, Health, HealthState, Metrics, SharedMap, Trace } from "./runtime/host/engine-types";
 export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
-export type { AppDefinition, TableSchema } from "./runtime/definition";
+export type { AppDefinition, Migration, TableSchema } from "./runtime/definition";
+export { OLDER_APP_MESSAGE } from "./runtime/definition";
+export type { TableStatus } from "./data/registry";
 export { appNames } from "./runtime/names";
 export type { Register } from "./data/schema";
 export { enrol, unlock, PassportError } from "./runtime/identity/passport.js";

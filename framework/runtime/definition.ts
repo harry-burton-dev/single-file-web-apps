@@ -11,11 +11,19 @@ export type TableSchema = {
   fields?: Record<string, FieldDef>;
 };
 
+/** One step takes a record's fields from version n to n + 1. Steps should only add fields, and leave an already-migrated record unchanged. */
+export type Migration = (record: Record<string, unknown>) => Record<string, unknown>;
+
 export type AppDefinition = {
   id: string;
   name: string;
   tables: Record<string, TableSchema>;
+  /** { <table>: { <fromVersion>: step } }, applied as records are read and written back by command. */
+  migrations?: Record<string, Record<number, Migration>>;
 };
+
+/** What a command on a table written by a newer app fails with, and what the shell shows (spec S5, part B). */
+export const OLDER_APP_MESSAGE = "this app is older than the data; load the new version";
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const TABLE = /^[A-Za-z0-9][A-Za-z0-9-]*$/; // the engine's folder-name rule
@@ -51,5 +59,24 @@ export function assertAppDefinition(def: AppDefinition): void {
     if (FRAMEWORK_TABLES.has(table.toLowerCase())) throw new Error(`Table name ${JSON.stringify(table)} is reserved: the framework keeps its own ${table.toLowerCase()} table`);
     if (!Number.isInteger(schema?.version) || schema.version < 1) throw new Error(`Table ${table}: version must be a whole number of 1 or more`);
     for (const [field, fieldDef] of Object.entries(schema.fields ?? {})) assertField(table, field, fieldDef);
+  }
+  assertMigrations(def);
+}
+
+function assertMigrations(def: AppDefinition): void {
+  const migrations: unknown = def.migrations;
+  if (migrations === undefined) return;
+  if (!migrations || typeof migrations !== "object" || Array.isArray(migrations)) throw new Error("App migrations must be an object");
+  for (const [table, steps] of Object.entries(migrations)) {
+    if (!Object.hasOwn(def.tables, table)) throw new Error(`Migrations name table ${table}, which is not declared in tables`);
+    if (!steps || typeof steps !== "object" || Array.isArray(steps)) throw new Error(`Migrations for ${table} must be an object`);
+    const version = def.tables[table].version;
+    for (const [from, step] of Object.entries(steps)) {
+      const n = Number(from);
+      if (!Number.isInteger(n) || n < 1 || n >= version) {
+        throw new Error(`Migrations for ${table}: version ${from} must be a whole number of 1 or more, below the table's version (${version})`);
+      }
+      if (typeof step !== "function") throw new Error(`Migrations for ${table}: the step from version ${from} must be a function`);
+    }
   }
 }
