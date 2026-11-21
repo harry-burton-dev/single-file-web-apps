@@ -475,7 +475,8 @@ export function checkHealth({ health, device, at = 0, lastSave = null, level = "
   if (!HEALTH_STATES.includes(state)) fail("not a known state");
   else if (!allowed.includes(state)) fail("no cause for this state exists in this run");
   if ((state === "saved" || state === "not-reaching-peers") && pending > 0) fail(`${pending} updates are still pending`);
-  if (state === "saving" && pending === 0) fail("nothing is pending");
+  if ((state === "saved" || state === "not-reaching-peers") && health.repairing) fail("an own file is still owed to the folder");
+  if (state === "saving" && pending === 0 && !health.repairing) fail("nothing is pending and no own file is owed to the folder");
   if (state === "retrying" && level !== "off" && (!lastSave || lastSave.outcome === "ok")) {
     fail(`its last save ${lastSave ? "succeeded" : "was never attempted"}`);
   }

@@ -2,7 +2,7 @@
 import { DEFAULT_OPTIONS, LAYOUTS } from "./constants.js";
 import { TRACE_LEVELS } from "./tracing.js";
 
-const POSITIVE = ["sealBytes", "quietMs", "maxWaitMs", "minIntervalMs", "scanMs", "statusMs", "retryInitialMs", "retryMaxMs", "maxErrors", "localSnapshotEvery"];
+const POSITIVE = ["sealBytes", "quietMs", "maxWaitMs", "minIntervalMs", "scanMs", "statusMs", "ownCheckMs", "retryInitialMs", "retryMaxMs", "maxErrors", "localSnapshotEvery"];
 
 export function resolveOptions(input = {}) {
   const options = {

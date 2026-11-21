@@ -11,7 +11,9 @@
 //                        listing or write. Local changes are still accepted
 //                        and stay pending.
 //   retrying             the last save attempt failed and a retry is scheduled
-//   saving               there are pending updates
+//   saving               there are pending updates, or one of our own files
+//                        went missing from the folder (or was replaced) and
+//                        has not been written again yet (own-repair.js)
 //   not-reaching-peers   nothing pending, saves succeed, at least one other
 //                        device was active within health.peerActiveWindowMs
 //                        (its status file's lastActiveAt, compared with our
@@ -91,6 +93,7 @@ function notReaching(ctx, peers, pending) {
 export function computeHealth(ctx, { withPeers = false } = {}) {
   const { rt } = ctx;
   const pending = [...ctx.tables.values()].reduce((n, T) => n + T.pending.length, 0);
+  const repairing = [...ctx.tables.values()].some((T) => T.idx.repair);
   let peers = null;
   let state = "saved";
   let reaching = null;
@@ -100,25 +103,25 @@ export function computeHealth(ctx, { withPeers = false } = {}) {
     state = "folder-disconnected";
   } else if (rt.retryAt != null) {
     state = "retrying";
-  } else if (pending) {
+  } else if (pending || repairing) {
     state = "saving";
   } else {
     peers = peerView(ctx);
     reaching = notReaching(ctx, peers, pending);
     if (reaching) state = "not-reaching-peers";
   }
-  if (!withPeers) return { state, detail: null, pending, peers: null, nextSaveAt: null };
+  if (!withPeers) return { state, detail: null, pending, repairing, peers: null, nextSaveAt: null };
   peers ??= peerView(ctx);
   const next = nextSaveAt(ctx);
   const detail = {
     offline: "the host reports no network",
     "folder-disconnected": `${rt.folder.fault?.name} while using the folder; changes are kept locally`,
     retrying: `saving failed ${rt.failures} time(s); next attempt at ${rt.retryAt}`,
-    saving: `${pending} change(s) waiting; next save due at ${next}`,
+    saving: pending ? `${pending} change(s) waiting; next save due at ${next}` : "writing again files of ours that went missing from the folder",
     "not-reaching-peers": reaching,
     saved: "everything is written to the folder",
   }[state];
-  return { state, detail, pending, peers, nextSaveAt: next };
+  return { state, detail, pending, repairing, peers, nextSaveAt: next };
 }
 
 /** Recompute the state; emits "health" when it changed. Returns the full report when asked. */
@@ -141,6 +144,7 @@ export function refreshHealth(ctx, { full = false } = {}) {
     lastScanAt: rt.lastScanAt,
     lastScanOkAt: rt.lastScanOkAt,
     pending: report.pending,
+    repairing: report.repairing, // an own file is missing from the folder (or was replaced) and not written again yet
     nextSaveAt: report.nextSaveAt,
     retryAt: rt.retryAt,
     peers: report.peers,

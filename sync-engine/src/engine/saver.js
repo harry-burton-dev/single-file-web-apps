@@ -4,7 +4,7 @@ import { seal, open as openEnvelope } from "./envelope.js";
 import { chunkName } from "./layout-chunks.js";
 import { MAX_CHUNK_SEQ } from "./constants.js";
 import { baseCovers, chunkId } from "./coverage.js";
-import { dropPending, markApplied, saveHw } from "./local-state.js";
+import { dropPending, markApplied, saveHw, saveIdx } from "./local-state.js";
 
 /** Metadata block shared by chunks and snapshots. */
 export function makeMeta(ctx, T, kind, extra = {}) {
@@ -112,6 +112,7 @@ export async function saveTable(ctx, T) {
   }
   const { seq } = T.open;
   await recordFile(ctx, T, written.name, written.bytes, written.meta);
+  await saveIdx(ctx, T); // a restart must not take our newest write for a foreign version (own-repair.js)
   T.open = { ...T.open, updates: content };
   await saveHw(ctx, T, seq);
   await dropPending(ctx, T, entries);
@@ -121,6 +122,12 @@ export async function saveTable(ctx, T) {
   }
   ctx.emit("saved", { table: T.name, seq, bytes: written.bytes.length, at: ctx.cfg.clock.now() });
   return true;
+}
+
+/** Write the open chunk again as held in memory (the copy in the folder was lost or replaced). */
+export async function rewriteOpenChunk(ctx, T) {
+  const written = await writeOpenChunk(ctx, T, T.open.updates);
+  await recordFile(ctx, T, written.name, written.bytes, written.meta);
 }
 
 function backoffMs(options, failures) {
