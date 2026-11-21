@@ -6,15 +6,17 @@ import { createSeededRandom } from "../../../engine/test/helpers/memfolder.js";
 import { sealKeyFile, openKeyFile, KeyFileError } from "../../identity/keyfile.js";
 import { workspaceFileFor } from "../../identity/workspace.js";
 import { enrol, unlock, PassportError } from "../../identity/passport.js";
-import { handMadeKeyring } from "./_keyring.js";
+import { newKeyring, rotateKeyring } from "../../identity/admin.js";
 
 const random = createSeededRandom(21);
 const ADMIN_PASS = "the admin's one-time phrase";
 const OWN_PASS = "my very own passport phrase";
 const user = { id: "sam", name: "Sam Smith" };
 
-async function invited(ids = [1]) {
-  const keyring = handMadeKeyring(random, ids);
+/** A workspace with keys 1 to `keyCount`, and an invite for Sam. */
+async function invited(keyCount = 1) {
+  let keyring = newKeyring({ random });
+  while (keyring.keys.length < keyCount) keyring = rotateKeyring(keyring, { random });
   const inviteText = await sealKeyFile({ kind: "invite", payload: { ...keyring, user }, passphrase: ADMIN_PASS, random });
   return { keyring, inviteText, workspaceText: await workspaceFileFor(keyring, { random }) };
 }
@@ -28,7 +30,7 @@ const rejectsWith = (promise, Type, code, message) =>
   });
 
 test("enrol turns the invite into a passport under the user's own passphrase", async () => {
-  const { keyring, inviteText } = await invited([1, 2]);
+  const { keyring, inviteText } = await invited(2);
   const { passportText, fileName, user: who } = await enrol({ inviteText, invitePassphrase: ADMIN_PASS, newPassphrase: OWN_PASS, random });
   assert.equal(fileName, "sam.passport.json");
   assert.deepEqual(who, user);
@@ -45,7 +47,7 @@ test("enrol refuses a wrong invite passphrase and a weak new one", async () => {
 });
 
 test("unlock gives the user and non-extractable keys, writing with the current key", async () => {
-  const { inviteText, workspaceText } = await invited([1, 2]);
+  const { inviteText, workspaceText } = await invited(2);
   const { passportText } = await enrol({ inviteText, invitePassphrase: ADMIN_PASS, newPassphrase: OWN_PASS, random });
   const id = await unlock({ passportText, passphrase: OWN_PASS, workspaceText });
   assert.deepEqual(id.user, user);
@@ -76,7 +78,7 @@ test("unlock refuses a passport for a different workspace", async () => {
 });
 
 test("unlock refuses an out-of-date passport after a rotation", async () => {
-  const { keyring, inviteText } = await invited([1]);
+  const { keyring, inviteText } = await invited(1);
   const { passportText } = await enrol({ inviteText, invitePassphrase: ADMIN_PASS, newPassphrase: OWN_PASS, random });
   const rotated = { ...keyring, current: 2, keys: [...keyring.keys, { id: 2, raw: random.bytes(32) }] };
   const workspaceText = await workspaceFileFor(rotated, { random });
