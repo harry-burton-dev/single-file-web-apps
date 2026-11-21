@@ -1,14 +1,11 @@
 // Engine test page: connect a folder, edit one shared note, and watch the
-// connection indicator and sync inspector. Real screens replace this.
+// health indicator; its menu opens the diagnostics view. Real screens replace this.
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { appNames, loadFolder, openDb, pickFolder, regrant, startHost, type Engine, type FolderState, type KeyValueDb } from "@trellis/framework";
+import { appNames, Button, HealthIndicator, loadFolder, openDb, pickFolder, regrant, ShellProvider, startHost, type Engine, type FolderState, type KeyValueDb } from "@trellis/framework";
 import app from "../app.config";
-import { ConnectionIndicator } from "./connection-indicator";
 import { loader } from "./loader-services";
 import { testWorkspaceKey } from "./test-key";
-import { SyncInspector } from "./sync-inspector";
-import { useSharedText, useSync } from "./use-engine";
+import { useSharedText } from "./use-engine";
 
 const names = appNames(app);
 const USER_KEY = "host/user";
@@ -72,24 +69,24 @@ function Setup({ session, onChange }: { session: Extract<Session, { phase: "setu
 }
 
 function Running({ session }: { session: Extract<Session, { phase: "running" }> }) {
-  const view = useSync(session.engine);
   const map = session.engine.table(TABLE).getMap("note");
   const text = useSharedText(map, "text");
   return (
-    <div className="flex flex-col gap-4">
-      <ConnectionIndicator health={view.health} />
-      <p className="text-xs text-muted-foreground">
-        Device {session.deviceId}, folder "{session.folderName}"
-      </p>
-      <textarea
-        id="note"
-        className="min-h-32 rounded-md border p-2 text-sm"
-        placeholder="Shared test note"
-        value={text}
-        onChange={(event) => map.set("text", event.target.value)}
-      />
-      <SyncInspector engine={session.engine} view={view} />
-    </div>
+    <ShellProvider engine={session.engine}>
+      <div className="flex flex-col gap-4">
+        <HealthIndicator />
+        <p className="text-xs text-muted-foreground">
+          Device {session.deviceId}, folder "{session.folderName}"
+        </p>
+        <textarea
+          id="note"
+          className="min-h-32 rounded-md border p-2 text-sm"
+          placeholder="Shared test note"
+          value={text}
+          onChange={(event) => map.set("text", event.target.value)}
+        />
+      </div>
+    </ShellProvider>
   );
 }
 

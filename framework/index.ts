@@ -8,3 +8,16 @@ export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
 export type { AppDefinition, TableSchema } from "./runtime/definition";
 export { appNames } from "./runtime/names";
 export type { Register } from "./data/schema";
+export {
+  ShellProvider,
+  HealthIndicator,
+  useHealth,
+  defaultStrings,
+  Button,
+  buttonVariants,
+  Badge,
+  badgeVariants,
+  type ShellStrings,
+  type ShellStringOverrides,
+  type HealthWording,
+} from "./runtime/shell";

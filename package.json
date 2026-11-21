@@ -7,7 +7,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\"",
+    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\" && npm run test:shell",
     "typecheck": "tsc --noEmit -p framework && tsc --noEmit -p app",
     "build": "npm run build:bootstrap && npm run build:app",
     "build:app": "vite build --config framework/build/vite.config.js --mode app",
@@ -16,6 +16,7 @@
     "smoke": "node framework/build/smoke.js",
     "release": "node framework/build/release.js",
     "keygen": "node framework/build/keygen.js",
-    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\""
+    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\"",
+    "test:shell": "vitest run --config framework/vitest.config.js"
   }
 }
