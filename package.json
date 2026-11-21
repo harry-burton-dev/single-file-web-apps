@@ -15,6 +15,7 @@
     "size": "node framework/build/size-budget.js",
     "dev": "vite --config framework/build/vite.config.js",
     "smoke": "node framework/build/smoke.js",
+    "two-users": "node --test framework/build/test/stand-in-folder.test.js && node framework/build/two-users.js",
     "release": "node framework/build/release.js",
     "keygen": "node framework/build/keygen.js",
     "probes": "node --test \"framework/engine/test/breaker/*.probe.js\""
