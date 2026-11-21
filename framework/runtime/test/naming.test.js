@@ -52,3 +52,25 @@ test("startHost asks for a device lock named after the app's id", async () => {
     }
   }
 });
+
+test("an app may not define a table named users, in any case: it is the framework's", () => {
+  for (const table of ["users", "Users", "USERS"]) {
+    assert.throws(() => assertAppDefinition({ id: "acme", name: "App", tables: { [table]: { version: 1 } } }), /framework/, table);
+  }
+  assert.doesNotThrow(() => assertAppDefinition({ id: "acme", name: "App", tables: { "users-2": { version: 1 }, members: { version: 1 } } }));
+});
+
+test("startHost syncs the framework's users table beside the app's tables", async () => {
+  const { startHost } = await import("../host/host.ts");
+  const { installFakeBrowser, hostConfig } = await import("./helpers/fake-browser.js");
+  const browser = installFakeBrowser();
+  try {
+    const started = await startHost(await hostConfig({ id: "acme", name: "App", tables: { notes: { version: 1 } } }));
+    assert.equal(started.ok, true);
+    assert.ok(started.engine.table("users"));
+    assert.ok(started.engine.table("notes"));
+    await started.stop();
+  } finally {
+    browser.restore();
+  }
+});
