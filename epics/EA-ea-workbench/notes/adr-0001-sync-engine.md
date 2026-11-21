@@ -206,7 +206,7 @@ Ruled out because they need a server, relay or a sign-in that fails from a page 
 
 ## Changes after adversarial testing (2026-11-21)
 
-An independent test pass found eight faults the simulation had missed. Seven are fixed, each with a test; one awaits a decision.
+An independent test pass found eight faults the simulation had missed. All eight are fixed, each with a test.
 
 **Fixed**
 
@@ -217,10 +217,15 @@ An independent test pass found eight faults the simulation had missed. Seven are
 - **Peer activity is judged locally.** Whether a colleague's device is active (and so must acknowledge before chunks are deleted) is judged by when this device last saw that device's status file change, on this device's clock. The colleague's own `lastActiveAt` is no longer trusted for this. The time is kept in the local store under `status-seen`. A device not yet observed counts as active.
 - **Pending edits after a crash.** Edits found in the pending area at start are applied to the document and logged, as well as re-sent.
 - **Sequence numbers from status files are untrusted.** A reported value counts only if it is an integer from 1 to 999998 (`MAX_CHUNK_SEQ`). A forged value can waste numbers but can no longer stop saving.
+- **Own files that vanish or are rolled back are written again** (`own-repair.js`). The device that wrote a file is the only one sure to hold its content, so each device watches its own files.
+  - *Vanished.* On every scan whose listing had no errors, an own file recorded as written that the listing no longer shows counts as lost, unless a snapshot still in the folder covers it. A direct lookup of the file confirms it first, because a listing can come back short without failing.
+  - *Replaced.* When the device reads its own chunk and finds a version other than the one it recorded (by the chunk's version id, not its timestamp), the chunk counts as rolled back. The open chunk is compared on every scan. Sealed own chunks are compared every `ownCheckMs` (10 minutes by default) and at the first scan of a session; the check reads metadata only unless the file changed.
+  - *Repair.* If the damaged file is the chunk the session is still writing, it is written again from memory. Otherwise the device publishes one snapshot of the whole table. What is owed is kept in the local store, so it survives a restart. Repairs for one table are at least `ownCheckMs` apart, so two profiles that wrongly share a device id cannot rewrite each other's file in a loop.
+  - *Health.* While a repair is owed, health reports `saving` with `repairing: true`, never `saved`.
+  - *Cost.* A browser profile restored from backup, or a crash between a write and the store update that records it, looks the same as a rollback and costs one extra snapshot. To keep that rare, the record of a write is now stored as part of the save, not at the next scan.
 
 **Open**
 
-- **Own files vanish or are rolled back in the folder.** If a device's own chunks are deleted in Explorer, restored to an older version by OneDrive, or the folder is wiped, the device does not notice and health still says saved. Proposed: each device checks that its own files are present as written and writes them again if not. Not decided.
 - **Crash within the first few store calls after an edit** loses that edit. Narrowed but not closed; unspecified.
 - **Idle growth of stored trace segments** (`trace/seg/*` keys) over thousands of idle ticks.
 - The health display still uses the colleague's `lastActiveAt` for "active", so a wrong clock can mislabel a device there. It does not affect deletion.

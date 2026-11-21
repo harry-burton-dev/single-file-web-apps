@@ -17,6 +17,7 @@ import { initOpenChunk, saveTable } from "./saver.js";
 import { scanTable } from "./scanner.js";
 import { compactionStep, reseed, republishShadowed } from "./compaction.js";
 import { appliedSummary, loadedSnapshotNames } from "./coverage.js";
+import { repairOwn } from "./own-repair.js";
 
 function chunksLayout(ctx) {
   const io = createChunksLayout({ root: ctx.cfg.root, deviceId: ctx.cfg.deviceId });
@@ -30,6 +31,7 @@ function chunksLayout(ctx) {
     scanTable: async (T) => {
       await scanTable(ctx, T);
       await republishShadowed(ctx, T);
+      await repairOwn(ctx, T);
     },
     maintenance: () => compactionStep(ctx),
     reseed: () => reseed(ctx),

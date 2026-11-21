@@ -158,7 +158,7 @@ Properties added:
 | Id | Property |
 |---|---|
 | P13 | **Every attempt is traced.** Each folder write and delete in the simulator log falls inside exactly one trace step with the same path (and, for writes, the same size). Deletes are matched on path and time only: the engine does not know the true size of a file it deletes without reading it. Reads are not in the simulator log, so they are checked as per-device totals against the simulator's counters. |
-| P14 | **Health is truthful.** `saved` implies no pending updates; `retrying` implies the last save failed, and a failed last save with updates pending implies `retrying`; `not-reaching-peers` appears when, and only when, an active peer's acknowledgement is older than the threshold. |
+| P14 | **Health is truthful.** `saved` implies no pending updates and no own file owed to the folder; `saving` implies pending updates or `repairing` (an own file vanished or was replaced and is not yet written again); `retrying` implies the last save failed, and a failed last save with updates pending implies `retrying`; `not-reaching-peers` appears when, and only when, an active peer's acknowledgement is older than the threshold. |
 | P15 | **Observation does not change behaviour.** Turning tracing detail up or down leaves the trace hash of the simulator log and the final content unchanged. |
 
 In the simulator `offline` and `folder-disconnected` have no cause, so seeing either is a P14 violation; those two states are covered by unit tests only.
@@ -174,6 +174,7 @@ In the simulator `offline` and `folder-disconnected` have no cause, so seeing ei
 | `quietMs` / `maxWaitMs` / `minIntervalMs` | 30000 / 180000 / 30000 | 2000 / 10000 / 2000 (eager) |
 | `scanMs` | 30000 | |
 | `statusMs` | 60000 | |
+| `ownCheckMs` | 600000 | How often own sealed chunks are compared with the folder, and the least time between two repairs of one table |
 | `compaction.enabled` | `true` | `false` |
 | `compaction.chunkThreshold` | 200 | 50 |
 | `compaction.snapshotMaxAgeMs` | 7 days | |

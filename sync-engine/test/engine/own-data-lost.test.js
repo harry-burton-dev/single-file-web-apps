@@ -23,6 +23,7 @@ test("own chunks and status file gone from the folder: the local high-water mark
   const e = await w.device(A); // the same local store
   e.table("notes").getMap("m").set("fresh", 9);
   await w.run([e, b], 15000);
-  assert.deepEqual(names(w), ["000004.ywb"], "numbering continues above 3");
+  assert.deepEqual(names(w).filter((n) => !n.startsWith("snap-")), ["000004.ywb"], "numbering continues above 3");
+  assert.equal(names(w).filter((n) => n.startsWith("snap-")).length, 1, "the lost chunks are republished in one snapshot");
   assert.equal(json(b).m.fresh, 9, "the peer received the edit");
 });

@@ -30,6 +30,7 @@ export const DEFAULT_OPTIONS = Object.freeze({
   minIntervalMs: 30000,
   scanMs: 30000,
   statusMs: 60000,
+  ownCheckMs: 600000, // how often our own sealed chunks are checked against the folder, and the least time between two repairs
   appVersion: "dev",
   schemaVersions: Object.freeze({}),
   retryInitialMs: 5000,

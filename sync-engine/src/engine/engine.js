@@ -128,7 +128,7 @@ async function initTable(ctx, name, adapterName) {
     name, adapterName, adapter, doc: restored.doc,
     pending: restored.pending.map((e) => ({ ...e, at: now })),
     pendSeq: restored.pendSeq, updSeq: restored.updSeq, updSinceSnap: restored.updSinceSnap,
-    idx: restored.idx, idxDirty: false, hw: restored.hw,
+    idx: restored.idx.repair === "open" ? { ...restored.idx, repair: "full" } : restored.idx, idxDirty: false, hw: restored.hw,
     open: { seq: restored.hw + 1, updates: [], prev: null },
     listing: { files: [], errors: [] }, unreadable: [], sizeAnomalies: new Set(), compactAt: null, compactRetryAt: null,
   };

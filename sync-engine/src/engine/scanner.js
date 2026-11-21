@@ -5,6 +5,7 @@ import { logUpdates, markApplied, saveIdx, forgetFiles } from "./local-state.js"
 import { baseCovers, chunkId } from "./coverage.js";
 import { chunkName } from "./layout-chunks.js";
 import { checkDigestAgreement, readStatusFiles } from "./status-files.js";
+import { noteOwnChanged, noteOwnLost } from "./own-repair.js";
 
 const describe = (error) => ({ name: error?.name ?? "Error", message: String(error?.message ?? error) });
 
@@ -42,7 +43,11 @@ async function applyEntry(ctx, T, e, file, bytes, parsed) {
       return; // not marked applied: read again next scan
     }
   }
-  markApplied(T, e.path, record);
+  // our own chunk in a version we did not write down: rolled back or replaced
+  const known = T.idx.files[e.path];
+  const changed = e.device === ctx.cfg.deviceId && e.kind === "chunk" && e.suffix === "" && Boolean(known?.iv) && known.iv !== record.iv;
+  markApplied(T, e.path, changed && known.sealed ? { ...record, sealed: true } : record);
+  if (changed) noteOwnChanged(T, e.seq);
   ctx.tracer.apply({ table: T.name, path: e.path, count: parsed.updates.length, bytes: bytes.length });
   if (e.device !== ctx.cfg.deviceId) {
     ctx.emit("received", { table: T.name, device: parsed.meta.device ?? e.device, writtenAt: parsed.meta.writtenAt });
@@ -77,7 +82,8 @@ function isFinal(ctx, T, e, known) {
 
 async function readEntry(ctx, T, e, unreadable) {
   const known = T.idx.files[e.path];
-  if (isFinal(ctx, T, e, known)) return; // never read again
+  // never read again, except our own sealed chunks, which are compared with the folder now and then
+  if (isFinal(ctx, T, e, known) && !(T.checkOwn && known.sealed && e.kind === "chunk" && e.device === ctx.cfg.deviceId)) return;
   try {
     const file = await ctx.layout.open(e); // metadata only; non-final chunks are few
     if (known?.fp === file.fingerprint) {
@@ -112,6 +118,9 @@ export async function scanTable(ctx, T) {
   T.listing = listing;
   for (const e of listing.files) if (e.suffix) ctx.metrics.copySeen(e.path);
   const unreadable = [];
+  const now = ctx.cfg.clock.now();
+  T.checkOwn = T.ownCheckAt == null || now >= T.ownCheckAt;
+  if (T.checkOwn) T.ownCheckAt = now + ctx.cfg.options.ownCheckMs;
   const snaps = listing.files.filter((e) => e.kind === "snap").sort((a, b) => b.stamp.localeCompare(a.stamp) || a.path.localeCompare(b.path));
   for (const e of snaps) await readEntry(ctx, T, e, unreadable);
   const covered = baseCovers(T);
@@ -121,6 +130,7 @@ export async function scanTable(ctx, T) {
     await readEntry(ctx, T, e, unreadable);
   }
   T.unreadable = unreadable;
+  await noteOwnLost(ctx, T, listing);
   prune(T, listing);
   await saveIdx(ctx, T);
 }
