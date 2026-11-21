@@ -34,7 +34,7 @@ Automerge was trialled as a second adapter and dropped. In simulation it behaved
 | Documents ("tables"), one per name, each through a CRDT adapter | What the tables mean (ADR-0002 defines the record model on top) |
 | Local database, chunk files, encryption envelope | Where the key comes from (ADR-0003) |
 | Save and read scheduling, retries | Screens, including the sync panel (ADR-0004) |
-| Events: changed, saved, received, error | Features |
+| Events: changed, accepted, saved, received, error | Features |
 
 Surface, in outline:
 
