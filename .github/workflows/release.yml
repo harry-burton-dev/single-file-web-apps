@@ -2,7 +2,7 @@ name: Release
 # Push a tag like v1.2.0 to publish a GitHub Release holding workbench-1.2.0.zip:
 # the Workbench folder (bootstrap, app bundle, signed manifest) ready to copy
 # into the shared folder. Needs the repository variable WORKBENCH_PUBLIC_KEY
-# and the secret WORKBENCH_SIGNING_KEY (see workbench/scripts/keygen.js).
+# and the secret WORKBENCH_SIGNING_KEY (see framework/build/keygen.js).
 on:
   push:
     tags: ["v*"]
@@ -18,26 +18,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Sync engine tests
-        working-directory: sync-engine
+      - name: Typecheck and tests
         run: |
           npm ci
-          npm test
-      - name: Workbench tests
-        working-directory: workbench
-        run: |
-          npm ci
-          npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+          npm version --no-git-tag-version --allow-same-version --workspace app "${GITHUB_REF_NAME#v}"
           npm run typecheck
           npm test
       - name: From-disk smoke test
-        working-directory: workbench
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           npm run smoke
       - name: Build and sign the release
-        working-directory: workbench
         env:
           WORKBENCH_PUBLIC_KEY: ${{ vars.WORKBENCH_PUBLIC_KEY }}
           WORKBENCH_SIGNING_KEY: ${{ secrets.WORKBENCH_SIGNING_KEY }}
@@ -47,4 +39,4 @@ jobs:
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" workbench/dist/release/workbench-*.zip --title "Workbench ${GITHUB_REF_NAME#v}" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/release/workbench-*.zip --title "Workbench ${GITHUB_REF_NAME#v}" --generate-notes

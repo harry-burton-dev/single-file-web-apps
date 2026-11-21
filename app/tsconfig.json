@@ -1,0 +1,4 @@
+{
+  "extends": "../framework/tsconfig.json",
+  "include": [".", "../framework/runtime/shell/globals.d.ts"]
+}

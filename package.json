@@ -1,0 +1,20 @@
+{
+  "name": "trellis",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["framework", "app"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "dev": "vite --config framework/build/vite.config.ts",
+    "build": "npm run build:bootstrap && npm run build:app",
+    "build:bootstrap": "vite build --config framework/build/vite.config.ts --mode bootstrap",
+    "build:app": "vite build --config framework/build/vite.config.ts --mode app",
+    "test": "node --test \"framework/**/*.test.js\" \"framework/**/*.test.ts\"",
+    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\"",
+    "typecheck": "tsc --noEmit -p framework && tsc --noEmit -p app",
+    "smoke": "node framework/build/smoke.js",
+    "release": "node framework/build/release.js",
+    "keygen": "node framework/build/keygen.js"
+  }
+}
