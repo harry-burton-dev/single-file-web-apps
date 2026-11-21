@@ -23,8 +23,8 @@ They never edit engine, loader, host, identity or release code, and no business 
 | Record layer (tables, field rules) | Built, **not used by the app** | `sync-engine/src/records`; no import of it under `workbench/src` |
 | Host, loader, bootstrap | Built | `workbench/src/host`, `loader`, `bootstrap` |
 | CI and tag release | Built; release workflow never run | `.github/workflows` |
-| App name | Hard-coded in 16 source files | database name, lock name, picker id, `WORKBENCH_*` variables, page titles |
-| Packaging | App imports the engine by relative path | `workbench/src/host/host.ts` lines 5-6 |
+| App name | Declared once, in `app/app.config.ts` (S1); database name, lock name, picker id, page title, bundle, release folder and zip names derive from its id and name | `framework/runtime/names.ts`; key variables are `TRELLIS_*`; `framework/test/no-old-name.test.js` |
+| Packaging | npm workspaces `framework` and `app` with one lockfile (S1); the app imports only `@trellis/framework` | root `package.json`; `framework/index.ts` |
 | Keys | One fixed test key, key id 0 | `workbench/src/app/test-key.ts` |
 | Identity | A typed name | `workbench/src/app/app.tsx` |
 | App | An engine test page with one shared note | `workbench/src/app/app.tsx` |
@@ -40,8 +40,8 @@ Each gate is pass or fail and is checked by a command, not by opinion. v0.1.0 sh
 |---|---|---|
 | G1 New project | `npm run create -- <name>` in a clean clone produces a project that installs, typechecks, tests and builds with no manual edit | CI job creates a project named `demo-app` and runs its full CI in it |
 | G2 No leftover names | The created project contains neither "workbench" nor "trellis" outside `node_modules`, the lockfile and a single attribution line | `grep -ri` in the created project returns only the allowed lines |
-| G3 One definition file | App name, id, tables and field rules are declared only in `app/app.config.ts` | Changing the name there changes the page title, database name, lock name and release file names; test asserts all four |
-| G4 No business logic | Framework folders hold no table or field name of any app | A test loads the framework with an empty app definition and starts; grep finds no example-app identifiers in framework folders |
+| G3 One definition file **(passed, S1)** | App name, id, tables and field rules are declared only in `app/app.config.ts` | Changing the name there changes the page title, database name, lock name and release file names; test asserts all four |
+| G4 No business logic **(passed, S1)** | Framework folders hold no table or field name of any app | A test loads the framework with an empty app definition and starts; grep finds no example-app identifiers in framework folders |
 | G5 Screens never touch the engine | App code imports only from the framework's public entry | Lint rule or test fails on any import from engine, loader or host internals in `app/` |
 | G6 Real keys | No fixed key in the build; data written by one invited user is readable by another and unreadable without an invite | Automated test with two users and one outsider |
 | G7 Two users converge | Two browser contexts on one folder, both edit, both end with the same data | Headless test using the example app, from built files opened from disk |

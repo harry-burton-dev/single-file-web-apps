@@ -1,8 +1,9 @@
 name: Release
-# Push a tag like v1.2.0 to publish a GitHub Release holding workbench-1.2.0.zip:
-# the Workbench folder (bootstrap, app bundle, signed manifest) ready to copy
-# into the shared folder. Needs the repository variable WORKBENCH_PUBLIC_KEY
-# and the secret WORKBENCH_SIGNING_KEY (see workbench/scripts/keygen.js).
+# Push a tag like v1.2.0 to publish a GitHub Release holding <id>-1.2.0.zip:
+# the app's release folder (bootstrap, app bundle, signed manifest) ready to copy
+# into the shared folder. The id, name and folder come from app/app.config.ts,
+# through the release step's outputs. Needs the repository variable
+# TRELLIS_PUBLIC_KEY and the secret TRELLIS_SIGNING_KEY (see framework/build/keygen.js).
 on:
   push:
     tags: ["v*"]
@@ -18,33 +19,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Sync engine tests
-        working-directory: sync-engine
+      - name: Install
+        run: npm ci
+      - name: Tests
         run: |
-          npm ci
-          npm test
-      - name: Workbench tests
-        working-directory: workbench
-        run: |
-          npm ci
-          npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+          npm version --workspace app --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
           npm run typecheck
           npm test
       - name: From-disk smoke test
-        working-directory: workbench
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           npm run smoke
       - name: Build and sign the release
-        working-directory: workbench
+        id: release
         env:
-          WORKBENCH_PUBLIC_KEY: ${{ vars.WORKBENCH_PUBLIC_KEY }}
-          WORKBENCH_SIGNING_KEY: ${{ secrets.WORKBENCH_SIGNING_KEY }}
-        run: |
-          npm run release
-          cd dist/release && zip -r "workbench-${GITHUB_REF_NAME#v}.zip" Workbench
+          TRELLIS_PUBLIC_KEY: ${{ vars.TRELLIS_PUBLIC_KEY }}
+          TRELLIS_SIGNING_KEY: ${{ secrets.TRELLIS_SIGNING_KEY }}
+        run: npm run release
+      - name: Zip the release folder
+        env:
+          FOLDER: ${{ steps.release.outputs.folder }}
+          ZIP: ${{ steps.release.outputs.zip }}
+        run: cd dist/release && zip -r "$ZIP" "$FOLDER"
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" workbench/dist/release/workbench-*.zip --title "Workbench ${GITHUB_REF_NAME#v}" --generate-notes
+          ZIP: ${{ steps.release.outputs.zip }}
+          TITLE: ${{ steps.release.outputs.title }}
+        run: gh release create "$GITHUB_REF_NAME" "dist/release/$ZIP" --title "$TITLE" --generate-notes
