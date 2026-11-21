@@ -7,6 +7,7 @@ import { webcrypto } from "node:crypto";
 import { createMemFolder } from "../../engine/test/helpers/memfolder.js";
 import { importPublicKey, sha256Hex, signManifest, verifyManifest } from "../loader/manifest.js";
 import { cachedBundle, checkForUpdate, readState } from "../loader/loader.js";
+import { rollbackBody } from "../../build/release-manifest.js";
 
 const { subtle } = webcrypto;
 const text = (s) => new TextEncoder().encode(s);
@@ -104,6 +105,24 @@ test("a deliberate rollback is a newer manifest naming an older bundle, served f
 
   assert.deepEqual(await w.check(), { status: "updated", version: "1.0.0" });
   assert.equal((await cachedBundle(w.cache, { previous: true })).version, "1.1.0");
+});
+
+test("a rollback manifest from npm run release -- --rollback makes the loader run N again; old manifests stay refused", async () => {
+  const w = await running();
+  const manifestN = w.folder.read("app/manifest.json");
+  const body = await w.publish("1.1.0", "two");
+  assert.deepEqual(await w.check(), { status: "updated", version: "1.1.0" });
+  const manifestN1 = w.folder.read("app/manifest.json");
+
+  await w.writeManifest(rollbackBody({ previous: body, version: "1.0.0", now: 0 }));
+  assert.deepEqual(await w.check(), { status: "updated", version: "1.0.0" });
+  assert.deepEqual(await w.current(), { version: "1.0.0", code: "one" });
+
+  for (const old of [manifestN, manifestN1]) {
+    w.folder.drop("app/manifest.json", old);
+    assert.equal((await w.check()).code, "serial-replayed");
+    assert.deepEqual(await w.current(), { version: "1.0.0", code: "one" });
+  }
 });
 
 test("refused: no manifest in the folder", async () => {
