@@ -5,3 +5,5 @@ export { loadFolder, pickFolder, regrant, forgetFolder, type FolderState } from 
 export { openDb, type KeyValueDb } from "./runtime/host/idb";
 export type { Engine, Health, HealthState, Metrics, SharedMap, Trace } from "./runtime/host/engine-types";
 export type { LoaderServices, UpdateResult } from "./runtime/loader/contract";
+export type { AppDefinition, TableSchema } from "./runtime/definition";
+export { appNames } from "./runtime/names";
