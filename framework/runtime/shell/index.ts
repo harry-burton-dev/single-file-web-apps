@@ -1,6 +1,6 @@
 // The shell's pieces (spec S4). The framework's public entry re-exports what an app may use.
 export { ShellProvider } from "./provider";
-export { useEngine, useHealth } from "./context";
+export { useHealth } from "./context";
 export { TrellisApp, type TrellisAppProps } from "./trellis-app";
 export { mount } from "./mount";
 export { HealthIndicator } from "./health-indicator";

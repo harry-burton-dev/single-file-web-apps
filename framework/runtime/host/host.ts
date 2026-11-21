@@ -28,12 +28,15 @@ export interface HostConfig {
 }
 
 export type HostStart =
-  | { ok: true; engine: Engine; deviceId: string; stop: () => Promise<void> }
+  /** clock and random are the ones the engine was given, for the data runtime (createData). */
+  | { ok: true; engine: Engine; deviceId: string; clock: { now(): number }; random: { bytes(n: number): Uint8Array }; stop: () => Promise<void> }
   | { ok: false; reason: "already-open" };
 
 function randomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));
 }
+
+const clock = { now: () => Date.now() };
 
 const random = {
   bytes: randomBytes,
@@ -83,7 +86,7 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
 
   const engine = (await createEngine({
     root: config.root,
-    clock: { now: () => Date.now() },
+    clock,
     timer: { now: () => performance.now() },
     random,
     store: engineStore(config.db),
@@ -130,5 +133,5 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
     lock.release();
   };
 
-  return { ok: true, engine, deviceId, stop };
+  return { ok: true, engine, deviceId, clock, random, stop };
 }

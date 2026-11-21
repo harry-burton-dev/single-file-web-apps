@@ -9,6 +9,7 @@ import { defaultStrings as s } from "../strings";
 import { KeyFileError } from "../../identity/keyfile.js";
 import { DEVICE, FOLDER, fakeServices, folderHandle, passportHandle, PASSPORT_FILE, USER, type Fakes } from "./helpers/fake-services";
 import type { AppDefinition } from "../../definition";
+import { useCommand, useConflicts, useRecords } from "../../../react/hooks";
 
 const config: AppDefinition = { id: "test-app", name: "Test App", tables: {} };
 const lapsed = { status: "needs-permission", handle: folderHandle } as const;
@@ -310,4 +311,37 @@ test("an app rewords the first-run flow through the strings prop", async () => {
   const fakes = fakeServices({ loadFolder: async () => ({ status: "none" }) });
   render(<TrellisApp config={config} services={fakes.services} strings={{ chooseFolder: "Pick the team folder" }} />);
   expect(await button("Pick the team folder")).toBeTruthy();
+});
+
+describe("data", () => {
+  // The test app's own table; cast because row types come from the example app's Register.
+  const items = "items" as never;
+  const withTable: AppDefinition = { id: "test-app", name: "Test App", tables: { items: { version: 1, fields: { label: "latest" } } } };
+
+  function Items() {
+    const rows = useRecords(items) as readonly { id: string; label?: string }[];
+    const create = useCommand("records.create");
+    const conflicts = useConflicts();
+    return (
+      <>
+        <p>{rows.map((row) => row.label).join(", ") || "no items"}</p>
+        <p>{`${conflicts.length} conflicts`}</p>
+        <button onClick={() => create({ table: items, fields: { label: "first" } })}>add</button>
+      </>
+    );
+  }
+
+  test("once running, screens read with hooks and write with commands", async () => {
+    const fakes = fakeServices({ loadPassport: async () => remembered });
+    render(
+      <TrellisApp config={withTable} services={fakes.services}>
+        <Items />
+      </TrellisApp>,
+    );
+    await unlockWith("my own passphrase");
+    expect(await screen.findByText("no items")).toBeTruthy();
+    expect(screen.getByText("0 conflicts")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "add" }));
+    expect(await screen.findByText("first")).toBeTruthy();
+  });
 });

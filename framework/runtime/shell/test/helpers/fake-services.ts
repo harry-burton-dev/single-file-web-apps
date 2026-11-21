@@ -61,7 +61,7 @@ export function fakeServices(overrides: Partial<ShellServices> = {}): Fakes {
     startHost: async () => {
       const engine = fakeEngine();
       engines.push(engine);
-      return { ok: true, engine, deviceId: DEVICE, stop: async () => void calls.push("stop") };
+      return { ok: true, engine, deviceId: DEVICE, clock: { now: () => 0 }, random: { bytes: (n: number) => new Uint8Array(n) }, stop: async () => void calls.push("stop") };
     },
     loader: () => undefined,
   };

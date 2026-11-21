@@ -1,5 +1,6 @@
 // A stand-in engine for component tests: health, metrics and traces are set by
 // the test, and emit() fires the events the shell listens to.
+import * as Y from "yjs";
 import type { Engine, Health, HealthState, Metrics, Trace } from "../../../host/engine-types";
 
 type Event = Parameters<Engine["on"]>[0];
@@ -25,9 +26,11 @@ export function fakeEngine({ state = "saved" as HealthState, traces = [] as Trac
   let current = health(state, extra);
   const listeners = new Map<Event, Set<(payload: unknown) => void>>();
   const calls: string[] = [];
+  const docs = new Map<string, Y.Doc>();
   const engine: FakeEngine = {
     calls,
-    table: () => ({ getMap: () => ({ get: () => undefined, set: () => undefined, observe: () => undefined, unobserve: () => undefined }) }),
+    // A real Yjs document per table, so the data runtime can open the app's tables.
+    table: (name) => docs.get(name) ?? docs.set(name, new Y.Doc()).get(name)!,
     tick: async () => undefined,
     flush: async () => void calls.push("flush"),
     scan: async () => void calls.push("scan"),
@@ -36,6 +39,7 @@ export function fakeEngine({ state = "saved" as HealthState, traces = [] as Trac
     metrics: () => metrics,
     traces: () => traces,
     setOffline: () => undefined,
+    noteConflict: () => undefined,
     on(event, listener) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(listener);

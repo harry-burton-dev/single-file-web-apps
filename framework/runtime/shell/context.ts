@@ -26,13 +26,3 @@ const readHealth = (engine: Engine): Health => engine.health();
 export function useHealth(): Health | null {
   return useEngineValue(useShell().engine, HEALTH_EVENTS, readHealth);
 }
-
-/**
- * The running engine, for the app's screens. Until the query layer (TR2)
- * gives screens their own hooks, this is how they reach shared data.
- */
-export function useEngine(): Engine {
-  const { engine } = useShell();
-  if (!engine) throw new Error("useEngine is for the app's screens, which run once the engine has started");
-  return engine;
-}

@@ -26,6 +26,8 @@ The UI is **React** (version 19), bundled by Vite.
 - Components never import Yjs, the record layer or the engine.
 - Data the user is editing but has not committed (a half-typed field) is ordinary React state. It becomes shared data only when a command runs.
 
+**As built (TR2, spec S2):** `useQuery` became three read hooks, `useRecords(table, query?)`, `useRecord(table, id)` and `useField(table, id, field)`, plus `useConflicts()` and `useResolveConflict()` for "ask" conflicts. `useCommand(name)` returns a function that runs the command synchronously and returns its result; it never throws. The shell (`<TrellisApp>`) makes the data runtime once per started engine and puts the screens inside `<DataProvider>`. Row and field types are inferred from `app/app.config.ts`. The public entry no longer exports the engine, `startHost`, `SharedMap` or `useEngine`, so a screen cannot reach them.
+
 ### 2. Plugins share the host's React
 
 A plugin is a separate bundle (ADR-0006). If it carried its own copy of React, its components could not use hooks alongside the app's. So:
@@ -94,7 +96,7 @@ Routing and screen layout. These are app-level choices and do not affect the lay
 
 ## Action Items
 
-1. [ ] Build `useQuery`, `useCommand` and `useHealth` once the query and command layers exist.
+1. [x] Build the read hooks, `useCommand` and `useHealth` (TR2 and TR4; `useQuery` became `useRecords`, `useRecord` and `useField`).
 2. [ ] Add React, as an external, to the plugin build and the plugin contract.
 3. [ ] Add error boundaries around screens and plugin views.
 4. [ ] Revisit the 500 KB budget once the first real screens exist.

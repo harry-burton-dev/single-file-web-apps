@@ -6,14 +6,16 @@ import { reduce, type ShellEvent, type ShellState } from "../machine";
 import type { KeyValueDb } from "../../host/idb";
 import type { Identity } from "../../identity/types";
 import type { Engine } from "../../host/engine-types";
+import type { Data } from "../../../data/runtime";
 
 const db = { name: "db" } as unknown as KeyValueDb;
 const root = { name: "shared" } as FileSystemDirectoryHandle;
 const passportHandle = { name: "sam.passport.json" } as FileSystemFileHandle;
 const identity = { user: { id: "sam", name: "Sam" } } as Identity;
 const engine = { name: "engine" } as unknown as Engine;
+const data = { name: "data" } as unknown as Data;
 const stop = async () => undefined;
-const session = { engine, stop, deviceId: "d1", user: identity.user };
+const session = { engine, data, stop, deviceId: "d1", user: identity.user };
 
 const starting: ShellState = { phase: "starting" };
 const folderNone: ShellState = { phase: "folder", db, folder: { status: "none" } };
@@ -28,7 +30,7 @@ const granted: ShellState = { ...running, reconnect: "granted" };
 const ready = { status: "ready", handle: root } as const;
 const noPassport = { status: "none" } as const;
 const savedPassport = { status: "ready", handle: passportHandle } as const;
-const started = { ok: true, engine, stop, deviceId: "d1" } as const;
+const started = { ok: true, engine, data, stop, deviceId: "d1", clock: { now: () => 0 }, random: { bytes: (n: number) => new Uint8Array(n) } } as const;
 
 type Row = [string, ShellState, ShellEvent, ShellState];
 

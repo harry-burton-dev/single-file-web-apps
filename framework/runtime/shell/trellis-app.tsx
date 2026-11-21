@@ -3,12 +3,15 @@
 // screens with the health indicator, inside the error boundary. An app can
 // reword it (strings) and style it (its tokens), not replace it.
 import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import { createData } from "../../data/runtime";
+import { DataProvider } from "../../react/hooks";
 import type { AppDefinition } from "../definition";
+import type { HostStart } from "../host/host";
 import { appNames } from "../names";
 import { useShell } from "./context";
 import { AlreadyOpen, Failed, FolderStep, folderEvent, InviteForm, Message, PassportStep, UnlockStep, describeError, type Flow } from "./first-run";
 import { HealthIndicator } from "./health-indicator";
-import { reduce, type ShellEvent, type ShellState } from "./machine";
+import { reduce, type ShellEvent, type ShellState, type Started } from "./machine";
 import { ShellProvider } from "./provider";
 import { realServices, type ShellServices } from "./services";
 import { mergeStrings, type ShellStringOverrides, type ShellStrings } from "./strings";
@@ -55,6 +58,23 @@ function boot(services: ShellServices, config: AppDefinition, strings: ShellStri
   return started;
 }
 
+/**
+ * The data runtime for a started engine, made here rather than in a component
+ * body so React mounting twice cannot make two. Stopping closes it first.
+ */
+function withData(started: Extract<HostStart, { ok: true }>, config: AppDefinition, user: string): Started {
+  const { engine, deviceId, clock, random } = started;
+  const data = createData({ engine, config, deviceId, user, clock, random });
+  return {
+    ...started,
+    data,
+    stop: async () => {
+      data.close();
+      await started.stop();
+    },
+  };
+}
+
 export function TrellisApp({ config, strings, children, services = realServices }: TrellisAppProps) {
   const [state, dispatch] = useReducer(reduce, { phase: "starting" } as ShellState);
   const merged = useMemo(() => mergeStrings(strings), [strings]);
@@ -71,7 +91,7 @@ export function TrellisApp({ config, strings, children, services = realServices 
     async (db: Parameters<Flow["start"]>[0], root: FileSystemDirectoryHandle, identity: Parameters<Flow["start"]>[2]): Promise<void> => {
       const result = await services.startHost({ root, db, user: identity.user.id, key: identity.key, keyId: identity.keyId, keys: identity.keys, app: config });
       if (result.ok) void services.loader()?.checkForUpdate(root);
-      dispatch({ type: "started", identity, result });
+      dispatch({ type: "started", identity, result: result.ok ? withData(result, config, identity.user.id) : result });
     },
     [services, config],
   );
@@ -137,7 +157,7 @@ function Running({ state, flow, children }: { state: RunningState; flow: Flow; c
     <>
       <HealthIndicator />
       {state.reconnect !== "none" && <ReconnectBanner state={state} flow={flow} />}
-      {children}
+      <DataProvider data={session.data}>{children}</DataProvider>
       {inviting ? (
         <InviteForm db={db} root={root} flow={flow} onDone={replaced} onCancel={() => setInviting(false)} />
       ) : (
