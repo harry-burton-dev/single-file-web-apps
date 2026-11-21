@@ -25,8 +25,8 @@ They never edit engine, loader, host, identity or release code, and no business 
 | CI and tag release | Built; release workflow never run | `.github/workflows` |
 | App name | Declared once, in `app/app.config.ts` (S1); database name, lock name, picker id, page title, bundle, release folder and zip names derive from its id and name | `framework/runtime/names.ts`; key variables are `TRELLIS_*`; `framework/test/no-old-name.test.js` |
 | Packaging | npm workspaces `framework` and `app` with one lockfile (S1); the app imports only `@trellis/framework` | root `package.json`; `framework/index.ts` |
-| Keys | One fixed test key, key id 0 | `workbench/src/app/test-key.ts` |
-| Identity | A typed name | `workbench/src/app/app.tsx` |
+| Keys | Workspace keyring from the admin page; users enrol from an invite and unlock a passport at each launch (TR3) | `framework/runtime/identity/`; `framework/runtime/admin/` |
+| Identity | From the invite, kept in the user's passport; `users` is a framework table (TR3) | `framework/runtime/identity/passport.js`, `admin.js` |
 | App | An engine test page with one shared note | `workbench/src/app/app.tsx` |
 | Schema versions | Stored per device and read; no migration path | `sync-engine/src/records/keys.js`, `table.js` |
 | Backups | Folder named in ADR-0005; nothing writes it | no match for "backups" in source |
@@ -43,7 +43,7 @@ Each gate is pass or fail and is checked by a command, not by opinion. v0.1.0 sh
 | G3 One definition file **(passed, S1)** | App name, id, tables and field rules are declared only in `app/app.config.ts` | Changing the name there changes the page title, database name, lock name and release file names; test asserts all four |
 | G4 No business logic **(passed, S1)** | Framework folders hold no table or field name of any app | A test loads the framework with an empty app definition and starts; grep finds no example-app identifiers in framework folders |
 | G5 Screens never touch the engine | App code imports only from the framework's public entry | Lint rule or test fails on any import from engine, loader or host internals in `app/` |
-| G6 Real keys | No fixed key in the build; data written by one invited user is readable by another and unreadable without an invite | Automated test with two users and one outsider |
+| G6 Real keys | No fixed key in the build; data written by one invited user is readable by another and unreadable without an invite | Automated test with two users and one outsider. **Passed** (TR3): `framework/runtime/test/identity/g6.test.js`, `npm run check:no-test-key` in CI |
 | G7 Two users converge | Two browser contexts on one folder, both edit, both end with the same data | Headless test using the example app, from built files opened from disk |
 | G8 Signed update end to end | Version N running; release N+1 placed in the folder; app offers it, loads it; a forged N+2 is refused | Extends the existing smoke test |
 | G9 Survives loss | Backup then restore into an empty folder reproduces all data; a newer-schema table opened by an older app is refused with a message, not corrupted | Automated tests |

@@ -6,6 +6,7 @@ import { createEngine } from "../../engine/src/engine/engine.js";
 import { createYjsAdapter } from "../../engine/src/adapters/yjs.js";
 import type { AppDefinition } from "../definition";
 import { appNames } from "../names.ts";
+import { USERS_TABLE } from "../identity/admin.js";
 import type { Engine } from "./engine-types";
 import type { KeyValueDb } from "./idb";
 
@@ -21,6 +22,8 @@ export interface HostConfig {
   user: string;
   key: CryptoKey;
   keyId: number;
+  /** Extra keys to read with, by key id, so data from before a rotation stays readable. */
+  keys?: Map<number, CryptoKey>;
   app: AppDefinition;
 }
 
@@ -86,10 +89,12 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
     store: engineStore(config.db),
     key: config.key,
     keyId: config.keyId,
+    keys: config.keys,
     user: config.user,
     deviceId,
     adapters: { yjs: createYjsAdapter({ random }) },
-    tables: Object.fromEntries(Object.keys(config.app.tables).map((table) => [table, "yjs"])),
+    // The app's tables, and the framework's users table (decision D17).
+    tables: Object.fromEntries([...Object.keys(config.app.tables), USERS_TABLE].map((table) => [table, "yjs"])),
   })) as unknown as Engine;
   engine.setOffline(!navigator.onLine);
 
