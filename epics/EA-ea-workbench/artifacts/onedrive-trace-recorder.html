@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneDrive trace recorder</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #4b5563;
+  --border: #c5cbd3; --accent: #0b5cad; --accent-text: #ffffff;
+  --warn-bg: #fff4d6; --warn-text: #5c3d00; --err-bg: #fde8e8; --err-text: #7a1212;
+  --ok-bg: #e3f4e6; --ok-text: #14532d; --code-bg: #eef1f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171b; --panel: #1e2328; --text: #e8ebef; --muted: #aab3bd;
+    --border: #3a424b; --accent: #5aa9f0; --accent-text: #0b1520;
+    --warn-bg: #3a2f10; --warn-text: #f5deb0; --err-bg: #3d1a1a; --err-text: #f6c4c4;
+    --ok-bg: #16311d; --ok-text: #bfe8c9; --code-bg: #12161a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 0 0 8px; }
+section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 16px; margin: 12px 0; }
+.note { background: var(--code-bg); border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 4px; }
+.warn { background: var(--warn-bg); color: var(--warn-text); padding: 8px 12px; border-radius: 4px; }
+.err { background: var(--err-bg); color: var(--err-text); padding: 8px 12px; border-radius: 4px; }
+.ok { background: var(--ok-bg); color: var(--ok-text); padding: 8px 12px; border-radius: 4px; }
+.hidden { display: none; }
+label { display: block; font-weight: 600; margin: 8px 0 2px; }
+input[type=text], input[type=number] { font: inherit; padding: 6px 8px; width: 100%; max-width: 260px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-text); cursor: pointer; margin: 8px 8px 0 0; }
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.stat { background: var(--code-bg); border-radius: 6px; padding: 6px 10px; }
+.stat b { display: block; font-size: 1.25rem; }
+.stat span { color: var(--muted); font-size: 0.85rem; }
+pre { background: var(--code-bg); border-radius: 6px; padding: 8px; margin: 0; height: 280px;
+  overflow: auto; font: 12px/1.4 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+ol { margin: 4px 0 4px 20px; padding: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>OneDrive trace recorder</h1>
+  <p class="note">Nothing is sent anywhere. This page makes no network requests and uses no external files. All
+    recorded data stays in this browser tab until you press "Download trace". Do not close or reload the tab before downloading.</p>
+
+  <section id="envPanel">
+    <h2>This browser</h2>
+    <dl id="envList"></dl>
+    <div id="apiMessage" class="hidden"></div>
+  </section>
+
+  <section id="startPanel">
+    <h2>How to use this page</h2>
+    <ol>
+      <li>In File Explorer, pick or create an <b>empty test folder</b> inside the shared OneDrive area. Do <b>not</b> use a folder that holds real data.</li>
+      <li>Open this page on each laptop and start recording on all of them at about the same time.</li>
+      <li>Leave the page open and the laptop awake for the chosen duration.</li>
+      <li>When the countdown ends, press <b>Download trace</b> and send the file to the person running the study.</li>
+    </ol>
+    <div class="row">
+      <div>
+        <label for="deviceName">Device name (letters, digits, hyphen)</label>
+        <input type="text" id="deviceName" maxlength="24" autocomplete="off" spellcheck="false" placeholder="e.g. LAPTOP-A">
+      </div>
+      <div>
+        <label for="writeInterval">Write every (seconds, 5 to 600)</label>
+        <input type="number" id="writeInterval" value="20" min="5" max="600">
+      </div>
+      <div>
+        <label for="durationMin">Duration (minutes, 1 to 480)</label>
+        <input type="number" id="durationMin" value="30" min="1" max="480">
+      </div>
+      <div>
+        <label for="readInterval">Read every (seconds, 1 to 120)</label>
+        <input type="number" id="readInterval" value="5" min="1" max="120">
+      </div>
+    </div>
+    <button id="chooseBtn" type="button">Choose folder</button>
+    <div id="rememberedBox" class="hidden note" style="margin-top:10px">
+      <div id="rememberedText"></div>
+      <button id="reconnectBtn" type="button" class="secondary">Reconnect</button>
+    </div>
+    <div id="startMessage" style="margin-top:10px"></div>
+  </section>
+
+  <section id="promisePanel" class="hidden">
+    <h2>What this page will and will not touch</h2>
+    <p class="ok">This page works only inside <code>trace-recorder/</code> in the folder you chose, and writes only
+      under <code>trace-recorder/<span id="promiseDevice"></span>/</code>. It never deletes or changes anything outside
+      <code>trace-recorder/</code>, and it never changes other devices' folders.</p>
+    <button id="startBtn" type="button">Start recording</button>
+  </section>
+
+  <section id="runPanel" class="hidden">
+    <h2>Recording</h2>
+    <p><b id="phaseText">Ready</b> &mdash; <span id="countdownText"></span></p>
+    <div class="stats" id="statsGrid"></div>
+    <div id="lastError" class="hidden err" style="margin-top:8px"></div>
+    <button id="stopBtn" type="button" class="secondary" disabled>Stop</button>
+    <button id="downloadBtn" type="button">Download trace</button>
+    <button id="cleanupBtn" type="button" class="secondary">Clean up</button>
+    <div id="runMessage" style="margin-top:8px"></div>
+  </section>
+
+  <section id="logPanel" class="hidden">
+    <h2>Recent events (last 200)</h2>
+    <pre id="logBox" aria-live="off"></pre>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// ==== PURE:START (no DOM, no browser APIs; unit-tested in Node)
+const EXPECTED_NAME = /^(?:w-\d+|open)\.bin$/;
+const CONFLICT_NAME = /^(?:w-\d+|open)-.+/;
+const DEVICE_NAME = /^[A-Za-z0-9-]{1,24}$/;
+const KIND_CREATE = "create";
+const KIND_OPEN = "open";
+const KIND_LARGE = "large";
+const SMALL_PAYLOAD_BYTES = 256;
+const LARGE_PAYLOAD_BYTES = 200 * 1024;
+
+function sha256Hex(bytes) {
+  const primes = [];
+  for (let n = 2; primes.length < 64; n++) {
+    if (primes.every((p) => n % p !== 0)) primes.push(n);
+  }
+  const frac = (x) => Math.floor((x - Math.floor(x)) * 4294967296) >>> 0;
+  const K = primes.map((p) => frac(Math.cbrt(p)));
+  const h = primes.slice(0, 8).map((p) => frac(Math.sqrt(p)));
+  const len = bytes.length;
+  const total = ((len + 9 + 63) >> 6) << 6;
+  const padded = new Uint8Array(total);
+  padded.set(bytes);
+  padded[len] = 0x80;
+  const view = new DataView(padded.buffer);
+  view.setUint32(total - 8, Math.floor(len / 0x20000000));
+  view.setUint32(total - 4, (len * 8) >>> 0);
+  const w = new Uint32Array(64);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let off = 0; off < total; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(off + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      hh = g; g = f; f = e; e = (d + t1) >>> 0;
+      d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    const v = [a, b, c, d, e, f, g, hh];
+    for (let i = 0; i < 8; i++) h[i] = (h[i] + v[i]) >>> 0;
+  }
+  return h.map((x) => x.toString(16).padStart(8, "0")).join("");
+}
+
+function seedFrom(device, seq) {
+  let s = 2166136261;
+  for (const ch of device + ":" + seq) s = Math.imul(s ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return s || 1;
+}
+
+function buildPayload(device, seq, length) {
+  const out = new Uint8Array(length);
+  let s = seedFrom(device, seq);
+  for (let i = 0; i < length; i++) {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5; s >>>= 0;
+    out[i] = s & 255;
+  }
+  return out;
+}
+
+// File = JSON header line, "\n", payload. Header "total" is the whole file length in bytes.
+function buildFileBytes({ device, seq, kind, now, payloadLen }) {
+  const enc = new TextEncoder();
+  const payload = buildPayload(device, seq, payloadLen);
+  const sha = sha256Hex(payload);
+  const headerFor = (total) => enc.encode(JSON.stringify({
+    device, seq, kind, t: now, len: payloadLen, total, sha }));
+  let total = 0;
+  let header = headerFor(total);
+  for (let i = 0; i < 6; i++) {
+    const next = header.length + 1 + payloadLen;
+    if (next === total) break;
+    total = next;
+    header = headerFor(total);
+  }
+  if (header.length + 1 + payloadLen !== total) throw new Error("header length did not converge");
+  const bytes = new Uint8Array(total);
+  bytes.set(header, 0);
+  bytes[header.length] = 10;
+  bytes.set(payload, header.length + 1);
+  return { bytes, header: JSON.parse(new TextDecoder().decode(header)) };
+}
+
+function parseHeader(headBytes) {
+  try {
+    const h = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(headBytes));
+    const ok = h && typeof h.device === "string" && typeof h.seq === "number" &&
+      typeof h.len === "number" && typeof h.total === "number" && typeof h.sha === "string" &&
+      typeof h.t === "number";
+    return ok ? { header: h } : { error: "header missing fields" };
+  } catch (e) {
+    return { error: "header unparseable" };
+  }
+}
+
+// Returns { state, header?, detail }. state: empty | truncated | checksum_mismatch | complete
+function parseFileBytes(bytes) {
+  if (bytes.length === 0) return { state: "empty", detail: "0 bytes" };
+  const nl = bytes.indexOf(10);
+  if (nl < 0) return { state: "truncated", detail: "no header line end, " + bytes.length + " bytes" };
+  const parsed = parseHeader(bytes.subarray(0, nl));
+  if (parsed.error) return { state: "truncated", detail: parsed.error };
+  const header = parsed.header;
+  const payload = bytes.subarray(nl + 1);
+  if (payload.length < header.len) {
+    return { state: "truncated", header, detail: "payload " + payload.length + " of " + header.len + " bytes" };
+  }
+  if (payload.length > header.len) {
+    return { state: "checksum_mismatch", header, detail: "payload longer than declared: " + payload.length + " vs " + header.len };
+  }
+  if (sha256Hex(payload) !== header.sha) return { state: "checksum_mismatch", header, detail: "sha256 differs" };
+  return { state: "complete", header, detail: "ok" };
+}
+
+// null for expected names, else the unexpected-file type.
+function classifyName(name) {
+  if (EXPECTED_NAME.test(name)) return null;
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".crswap")) return "crswap";
+  if (lower.endsWith(".tmp")) return "tmp";
+  if (lower === "desktop.ini") return "desktop.ini";
+  if (CONFLICT_NAME.test(name)) return "conflict_copy";
+  return "other";
+}
+
+function percentile(sorted, p) {
+  if (sorted.length === 0) return null;
+  return sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)];
+}
+
+function describeSamples(samples) {
+  const sorted = samples.slice().sort((a, b) => a - b);
+  return { n: sorted.length, median: percentile(sorted, 50), p95: percentile(sorted, 95),
+    max: sorted.length ? sorted[sorted.length - 1] : null };
+}
+
+function countBy(items, keyFn) {
+  const out = {};
+  for (const item of items) { const k = keyFn(item); out[k] = (out[k] || 0) + 1; }
+  return out;
+}
+
+function summarize({ delaysBySource, selfDevice, stateCounts, unexpected, writeFailures }) {
+  const delays = {};
+  for (const [source, samples] of Object.entries(delaysBySource)) {
+    delays[source] = { ...describeSamples(samples), isOwnDevice: source === selfDevice };
+  }
+  return {
+    firstCompleteSightingDelayMs_includesClockDifferenceBetweenMachines: delays,
+    sightingCounts: { ...stateCounts },
+    unexpectedFilesByType: countBy(unexpected, (u) => u.type),
+    writeFailuresByErrorName: countBy(writeFailures, (f) => f.errName),
+  };
+}
+// ==== PURE:END
+
+// ---------- constants ----------
+const EVENT_CAP = 50000;
+const RECENT_LOG_MAX = 200;
+const TRACE_DIR = "trace-recorder";
+const TAIL_AFTER_WRITER_MS = 120000;
+const MAX_REREADS = 60;
+const DELETE_EVERY = 10;
+const LARGE_EVERY = 15;
+const TICK_MS = 1000;
+const SLEEP_SLICE_MS = 250;
+const DB_NAME = "onedrive-trace-recorder";
+const DB_STORE = "handles";
+const DB_KEY = "root";
+const SCHEMA = "onedrive-trace/1";
+
+// ---------- state ----------
+const $ = (id) => document.getElementById(id);
+const events = [];
+const recent = [];
+const versions = new Map();
+const lastListed = new Map();
+const unexpectedFiles = new Map();
+const delaysBySource = {};
+const permissionTests = [];
+const writeFailures = [];
+const devicesSeen = new Set();
+const counters = {
+  cycles: 0, filesWritten: 0, writeErrors: 0, errors: 0, scans: 0,
+  observerCallbacks: 0, observerRecords: 0,
+  states: { complete: 0, empty: 0, truncated: 0, checksum_mismatch: 0, unreadable: 0 },
+};
+const run = {
+  device: "", settings: null, rootHandle: null, traceDir: null, devDir: null,
+  running: false, phase: "idle", startedAt: null, endedAt: null, writerEndAt: null,
+  ownFiles: [], observer: null, observerStatus: "not started", eventsDropped: 0, capHitAt: null,
+  scanFailed: false, lastError: null, cleanedUp: false,
+};
+
+// ---------- logging ----------
+function errInfo(e) {
+  return { errName: (e && e.name) || "Error", errMessage: String((e && e.message) || e) };
+}
+
+function clock(t) { return new Date(t).toTimeString().slice(0, 8); }
+
+function logEvent(type, data) {
+  const t = Date.now();
+  const line = clock(t) + " " + type + " " + JSON.stringify(data).slice(0, 220);
+  recent.push(line);
+  if (recent.length > RECENT_LOG_MAX) recent.shift();
+  if (events.length >= EVENT_CAP) {
+    if (run.capHitAt === null) run.capHitAt = t;
+    run.eventsDropped++;
+    return;
+  }
+  events.push({ t, type, ...data });
+}
+
+function reportError(where, e, extra) {
+  const info = errInfo(e);
+  counters.errors++;
+  run.lastError = where + ": " + info.errName + " - " + info.errMessage;
+  logEvent("error", { where, ...info, ...(extra || {}) });
+}
+
+// ---------- environment ----------
+function environmentInfo() {
+  const brands = navigator.userAgentData && navigator.userAgentData.brands
+    ? navigator.userAgentData.brands.map((b) => b.brand + " " + b.version).join(", ") : "n/a";
+  return {
+    userAgent: navigator.userAgent, brands,
+    isSecureContext: window.isSecureContext, origin: String(location.origin), href: location.protocol + "//" + (location.pathname || ""),
+    hasShowDirectoryPicker: typeof window.showDirectoryPicker === "function",
+    hasFileSystemObserver: typeof window.FileSystemObserver === "function",
+    timezoneOffsetMinutes: new Date().getTimezoneOffset(), language: navigator.language,
+    pageLoadedAt: pageLoadedAt,
+  };
+}
+const pageLoadedAt = Date.now();
+
+function renderEnvironment() {
+  const env = environmentInfo();
+  const rows = [
+    ["Secure context", String(env.isSecureContext)],
+    ["Origin", env.origin],
+    ["Browser", env.userAgent],
+    ["Folder picker available", String(env.hasShowDirectoryPicker)],
+    ["FileSystemObserver exists", String(env.hasFileSystemObserver)],
+  ];
+  const list = $("envList");
+  for (const [k, v] of rows) {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    list.append(dt, dd);
+  }
+  if (!env.hasShowDirectoryPicker) {
+    showMessage("apiMessage", "err", "This browser does not support the folder picker (showDirectoryPicker). Use Chrome or Edge on Windows.");
+    $("chooseBtn").disabled = true;
+  }
+}
+
+function showMessage(id, cls, text) {
+  const el = $(id);
+  el.className = cls;
+  el.textContent = text;
+}
+
+// ---------- IndexedDB (remembered folder) ----------
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("IndexedDB open blocked"));
+  });
+}
+
+async function idbRequest(mode, action) {
+  const db = await openDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, mode);
+      const req = action(tx.objectStore(DB_STORE));
+      tx.oncomplete = () => resolve(req.result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error("transaction aborted"));
+    });
+  } finally { db.close(); }
+}
+
+function recordPermission(step, result) {
+  const rec = { t: Date.now(), step, ...result };
+  permissionTests.push(rec);
+  logEvent("permission", { step, ...result });
+}
+
+async function storeHandle(handle) {
+  try {
+    await idbRequest("readwrite", (s) => s.put(handle, DB_KEY));
+    recordPermission("store_handle", { ok: true });
+  } catch (e) {
+    recordPermission("store_handle", { ok: false, ...errInfo(e) });
+  }
+}
+
+async function loadRememberedHandle() {
+  try {
+    const handle = await idbRequest("readonly", (s) => s.get(DB_KEY));
+    if (!handle) { recordPermission("load_handle", { ok: true, found: false }); return; }
+    recordPermission("load_handle", { ok: true, found: true, name: handle.name });
+    run.rememberedHandle = handle;
+    $("rememberedBox").className = "note";
+    $("rememberedText").textContent = "A folder from last time is remembered: " + handle.name;
+    await queryOnly(handle, "query_on_load");
+  } catch (e) {
+    recordPermission("load_handle", { ok: false, ...errInfo(e) });
+  }
+}
+
+async function queryOnly(handle, step) {
+  try {
+    const state = await handle.queryPermission({ mode: "readwrite" });
+    recordPermission(step, { state });
+    return state;
+  } catch (e) {
+    recordPermission(step, { ...errInfo(e) });
+    return null;
+  }
+}
+
+async function reconnect() {
+  const handle = run.rememberedHandle;
+  if (!validDevice()) return;
+  await queryOnly(handle, "query_before_request");
+  let state = null;
+  try {
+    state = await handle.requestPermission({ mode: "readwrite" });
+    recordPermission("request_permission", { state });
+  } catch (e) {
+    recordPermission("request_permission", { ...errInfo(e) });
+    showMessage("startMessage", "err", "Reconnect failed: " + errInfo(e).errName + " - " + errInfo(e).errMessage);
+    return;
+  }
+  await queryOnly(handle, "query_after_request");
+  if (state !== "granted") {
+    showMessage("startMessage", "warn", "Permission was not granted (state: " + state + "). Use Choose folder instead.");
+    return;
+  }
+  await prepareFolders(handle);
+}
+
+// ---------- folder setup ----------
+function validDevice() {
+  const name = $("deviceName").value.trim();
+  if (!DEVICE_NAME.test(name)) {
+    showMessage("startMessage", "err", "Enter a device name using only letters, digits and hyphens (1 to 24 characters).");
+    return false;
+  }
+  run.device = name;
+  return true;
+}
+
+function readSettings() {
+  const num = (id, lo, hi) => {
+    const v = Number($(id).value);
+    if (!Number.isFinite(v) || v < lo || v > hi) throw new Error($(id).previousElementSibling.textContent + " must be between " + lo + " and " + hi);
+    return v;
+  };
+  return {
+    writeIntervalMs: num("writeInterval", 5, 600) * 1000,
+    durationMs: num("durationMin", 1, 480) * 60000,
+    readIntervalMs: num("readInterval", 1, 120) * 1000,
+  };
+}
+
+async function chooseFolder() {
+  if (!validDevice()) return;
+  try { run.settings = readSettings(); } catch (e) { showMessage("startMessage", "err", e.message); return; }
+  let handle;
+  try {
+    handle = await window.showDirectoryPicker({ mode: "readwrite" });
+  } catch (e) {
+    const info = errInfo(e);
+    const text = info.errName === "AbortError" ? "No folder was chosen." :
+      "The folder picker failed: " + info.errName + " - " + info.errMessage;
+    showMessage("startMessage", info.errName === "AbortError" ? "warn" : "err", text);
+    recordPermission("picker", { ok: false, ...info });
+    return;
+  }
+  recordPermission("picker", { ok: true, name: handle.name });
+  await storeHandle(handle);
+  await prepareFolders(handle);
+}
+
+async function prepareFolders(rootHandle) {
+  try {
+    run.settings = readSettings();
+    run.rootHandle = rootHandle;
+    run.traceDir = await rootHandle.getDirectoryHandle(TRACE_DIR, { create: true });
+    run.devDir = await run.traceDir.getDirectoryHandle(run.device, { create: true });
+  } catch (e) {
+    const info = errInfo(e);
+    showMessage("startMessage", "err", "Could not prepare folders: " + info.errName + " - " + info.errMessage);
+    reportError("prepareFolders", e);
+    return;
+  }
+  $("promiseDevice").textContent = run.device;
+  $("promisePanel").className = "";
+  $("runPanel").className = "";
+  $("logPanel").className = "";
+  $("chooseBtn").disabled = true;
+  $("deviceName").disabled = true;
+  showMessage("startMessage", "ok", "Folder ready: " + rootHandle.name + "/" + TRACE_DIR + "/" + run.device + "/. Press Start recording on every laptop at about the same time.");
+  renderStats();
+}
+
+// ---------- writer ----------
+function sleepUntil(t) {
+  return new Promise((resolve) => {
+    const tick = () => (!run.running || Date.now() >= t ? resolve() : setTimeout(tick, SLEEP_SLICE_MS));
+    tick();
+  });
+}
+
+function planCycle(n) {
+  if (n % LARGE_EVERY === 0) return { kind: KIND_LARGE, name: "w-" + n + ".bin", payloadLen: LARGE_PAYLOAD_BYTES };
+  if (n % DELETE_EVERY === 0) return { kind: "delete" };
+  if (n % 2 === 1) return { kind: KIND_CREATE, name: "w-" + n + ".bin", payloadLen: SMALL_PAYLOAD_BYTES };
+  return { kind: KIND_OPEN, name: "open.bin", payloadLen: SMALL_PAYLOAD_BYTES };
+}
+
+async function writeOnce(plan, seq) {
+  const rec = { cycle: seq, kind: plan.kind, name: plan.name, tStart: Date.now() };
+  let writable = null;
+  let stage = "build";
+  try {
+    const built = buildFileBytes({ device: run.device, seq, kind: plan.kind, now: rec.tStart, payloadLen: plan.payloadLen });
+    rec.bytes = built.bytes.length; rec.sha = built.header.sha; rec.headerTime = built.header.t;
+    stage = "getFileHandle";
+    const fh = await run.devDir.getFileHandle(plan.name, { create: true });
+    stage = "createWritable";
+    writable = await fh.createWritable();
+    rec.tCreateWritable = Date.now();
+    stage = "write";
+    await writable.write(built.bytes);
+    rec.tWriteDone = Date.now();
+    stage = "close";
+    await writable.close();
+    rec.tClose = Date.now();
+    counters.filesWritten++;
+    if (plan.kind !== KIND_OPEN && !run.ownFiles.includes(plan.name)) run.ownFiles.push(plan.name);
+  } catch (e) {
+    Object.assign(rec, errInfo(e), { stage });
+    await abortQuietly(writable, rec);
+  }
+  return rec;
+}
+
+async function abortQuietly(writable, rec) {
+  if (!writable) return;
+  try { await writable.abort(); } catch (e) { rec.abortError = errInfo(e).errName; }
+}
+
+async function deleteOnce(seq) {
+  const rec = { cycle: seq, kind: "delete", tStart: Date.now() };
+  const name = run.ownFiles.length >= 2 ? run.ownFiles[0] : null;
+  if (!name) { rec.skipped = "fewer than 2 own w- files"; return rec; }
+  rec.name = name;
+  try {
+    await run.devDir.removeEntry(name);
+    rec.tDone = Date.now();
+    run.ownFiles.shift();
+  } catch (e) {
+    Object.assign(rec, errInfo(e), { stage: "removeEntry" });
+  }
+  return rec;
+}
+
+async function runCycle(n) {
+  const plan = planCycle(n);
+  const rec = plan.kind === "delete" ? await deleteOnce(n) : await writeOnce(plan, n);
+  counters.cycles++;
+  if (rec.errName) {
+    counters.writeErrors++;
+    writeFailures.push({ errName: rec.errName, stage: rec.stage, kind: rec.kind });
+    run.lastError = "write " + rec.kind + " failed at " + rec.stage + ": " + rec.errName + " - " + rec.errMessage;
+  }
+  logEvent("write", rec);
+}
+
+async function writerLoop() {
+  let n = 0;
+  while (run.running && Date.now() < run.writerEndAt) {
+    const started = Date.now();
+    await runCycle(++n);
+    await sleepUntil(Math.min(started + run.settings.writeIntervalMs, run.writerEndAt));
+  }
+  if (run.running) {
+    run.phase = "tail";
+    logEvent("phase", { phase: "tail", note: "writer finished, reader keeps watching" });
+  }
+}
+
+// ---------- reader ----------
+function noteDelay(folder, header, t) {
+  const delay = t - header.t;
+  (delaysBySource[folder] = delaysBySource[folder] || []).push(delay);
+  return delay;
+}
+
+function applyState(v, result, t, folder) {
+  const last = v.states[v.states.length - 1];
+  if (last && last.state === result.state && last.detail === result.detail) return;
+  v.states.push({ t, state: result.state, detail: result.detail });
+  counters.states[result.state]++;
+  const data = { path: v.path, size: v.size, lastModified: v.lm, state: result.state, detail: result.detail };
+  if (result.state === "complete") {
+    v.final = true;
+    data.delayMsInclClockDifference = noteDelay(folder, result.header, t);
+    if (result.header.device !== folder) data.headerDeviceMismatch = result.header.device;
+    v.header = { device: result.header.device, seq: result.header.seq, kind: result.header.kind, t: result.header.t };
+  }
+  logEvent("state", data);
+}
+
+async function readVersion(file, v, t, folder) {
+  v.reads++;
+  let result;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    result = parseFileBytes(bytes);
+    if (bytes.length !== v.size) result.detail += "; read " + bytes.length + " bytes, listed " + v.size;
+  } catch (e) {
+    const info = errInfo(e);
+    result = { state: "unreadable", detail: info.errName + ": " + info.errMessage };
+  }
+  applyState(v, result, t, folder);
+}
+
+function joinPath(folder, name) { return folder ? folder + "/" + name : name; }
+
+function noteListing(path, size, lm) {
+  if (!lastListed.has(path)) logEvent("list_new", { path, size, lastModified: lm });
+  lastListed.set(path, { size, lm });
+}
+
+async function noteExpected(folder, name, file, t) {
+  const path = joinPath(folder, name);
+  const key = path + "|" + file.size + "|" + file.lastModified;
+  let v = versions.get(key);
+  if (!v) {
+    v = { path, size: file.size, lm: file.lastModified, firstSeen: t, states: [], reads: 0, final: false };
+    versions.set(key, v);
+    logEvent("version_seen", { path, size: v.size, lastModified: v.lm });
+  } else if (v.final || v.reads >= MAX_REREADS) return;
+  await readVersion(file, v, t, folder);
+}
+
+async function noteUnexpected(folder, name, type, file, t) {
+  const path = joinPath(folder, name);
+  let u = unexpectedFiles.get(path);
+  const isNew = !u;
+  if (isNew) u = { path, folder, name, type, firstSeen: t, sightings: 0, goneAt: null };
+  u.sightings++; u.lastSeen = t; u.goneAt = null;
+  const changed = u.size !== file.size || u.lastModified !== file.lastModified;
+  u.size = file.size; u.lastModified = file.lastModified;
+  unexpectedFiles.set(path, u);
+  if (type === "conflict_copy" && changed) await describeConflict(u, file);
+  if (isNew) logEvent("unexpected", { path, type, size: u.size, lastModified: u.lastModified });
+}
+
+async function describeConflict(u, file) {
+  try {
+    const r = parseFileBytes(new Uint8Array(await file.arrayBuffer()));
+    u.content = { state: r.state, detail: r.detail, header: r.header ? { device: r.header.device, seq: r.header.seq, kind: r.header.kind } : null };
+  } catch (e) {
+    u.content = { state: "unreadable", ...errInfo(e) };
+  }
+}
+
+async function noteFile(folder, name, handle, t) {
+  const path = joinPath(folder, name);
+  let file;
+  try { file = await handle.getFile(); } catch (e) {
+    run.scanFailed = true;
+    reportError("getFile " + path, e);
+    return;
+  }
+  noteListing(path, file.size, file.lastModified);
+  seenNow.add(path);
+  const type = folder === "" ? "file_in_trace_root" : classifyName(name);
+  if (type) await noteUnexpected(folder, name, type, file, t);
+  else await noteExpected(folder, name, file, t);
+}
+
+let seenNow = new Set();
+
+async function scanFolder(folder, dirHandle, t) {
+  try {
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (handle.kind === "file") await noteFile(folder, name, handle, t);
+      else if (folder === "") { devicesSeen.add(name); await scanFolder(name, handle, t); }
+      else await noteUnexpectedFolder(folder, name, t);
+    }
+  } catch (e) {
+    run.scanFailed = true;
+    reportError("list " + (folder || TRACE_DIR), e);
+  }
+}
+
+async function noteUnexpectedFolder(folder, name, t) {
+  const path = joinPath(folder, name) + "/";
+  seenNow.add(path);
+  if (unexpectedFiles.has(path)) return;
+  unexpectedFiles.set(path, { path, folder, name, type: "subfolder", firstSeen: t, sightings: 1, goneAt: null });
+  lastListed.set(path, { size: 0, lm: 0 });
+  logEvent("unexpected", { path, type: "subfolder" });
+}
+
+function detectDisappearances(t) {
+  if (run.scanFailed) return;
+  for (const [path, info] of [...lastListed.entries()]) {
+    if (seenNow.has(path)) continue;
+    lastListed.delete(path);
+    logEvent("list_gone", { path, lastSize: info.size, lastModified: info.lm });
+    const u = unexpectedFiles.get(path);
+    if (u) u.goneAt = t;
+  }
+}
+
+async function scanOnce() {
+  const t = Date.now();
+  seenNow = new Set();
+  run.scanFailed = false;
+  await scanFolder("", run.traceDir, t);
+  detectDisappearances(t);
+  counters.scans++;
+}
+
+async function readerLoop() {
+  while (run.running) {
+    const started = Date.now();
+    try { await scanOnce(); } catch (e) { reportError("scan", e); }
+    if (run.phase === "tail" && Date.now() >= run.writerEndAt + TAIL_AFTER_WRITER_MS) { finish("finished"); return; }
+    await sleepUntil(started + run.settings.readIntervalMs);
+  }
+}
+
+// ---------- FileSystemObserver ----------
+async function startObserver() {
+  if (typeof window.FileSystemObserver !== "function") {
+    run.observerStatus = "FileSystemObserver not available";
+    logEvent("observer_status", { status: run.observerStatus });
+    return;
+  }
+  try {
+    run.observer = new window.FileSystemObserver(onObserverRecords);
+    await run.observer.observe(run.traceDir, { recursive: true });
+    run.observerStatus = "observing";
+  } catch (e) {
+    run.observerStatus = "failed: " + errInfo(e).errName;
+    reportError("FileSystemObserver", e);
+  }
+  logEvent("observer_status", { status: run.observerStatus });
+}
+
+function onObserverRecords(records) {
+  try {
+    counters.observerCallbacks++;
+    for (const r of records) {
+      counters.observerRecords++;
+      logEvent("observer_record", {
+        recordType: r.type,
+        path: (r.relativePathComponents || []).join("/"),
+        movedFrom: r.relativePathMovedFrom ? r.relativePathMovedFrom.join("/") : null,
+        handleKind: r.changedHandle ? r.changedHandle.kind : null,
+      });
+    }
+  } catch (e) { reportError("observer callback", e); }
+}
+
+// ---------- run control ----------
+async function startRecording() {
+  if (run.running || !run.devDir) return;
+  run.running = true;
+  run.phase = "running";
+  run.startedAt = Date.now();
+  run.writerEndAt = run.startedAt + run.settings.durationMs;
+  $("startBtn").disabled = true;
+  $("stopBtn").disabled = false;
+  $("cleanupBtn").disabled = true;
+  logEvent("start", { device: run.device, settings: run.settings });
+  await startObserver();
+  writerLoop().catch((e) => reportError("writerLoop", e));
+  readerLoop().catch((e) => reportError("readerLoop", e));
+}
+
+function finish(label) {
+  if (!run.running) return;
+  run.running = false;
+  run.phase = label;
+  run.endedAt = Date.now();
+  if (run.observer) {
+    try { run.observer.disconnect(); } catch (e) { reportError("observer disconnect", e); }
+  }
+  logEvent("end", { phase: label });
+  $("stopBtn").disabled = true;
+  $("cleanupBtn").disabled = false;
+  renderStats();
+}
+
+// ---------- trace output ----------
+function traceDocument() {
+  const pick = (types) => events.filter((e) => types.includes(e.type));
+  const unexpected = [...unexpectedFiles.values()];
+  return {
+    schema: SCHEMA,
+    generatedAt: Date.now(),
+    note: "Delays are writer clock to reader clock and include any clock difference between machines.",
+    environment: environmentInfo(),
+    settings: { device: run.device, ...run.settings, eventCap: EVENT_CAP, maxRereadsPerVersion: MAX_REREADS },
+    run: { phase: run.phase, startedAt: run.startedAt, endedAt: run.endedAt, writerEndAt: run.writerEndAt },
+    counters,
+    eventCap: { cap: EVENT_CAP, stored: events.length, hit: run.capHitAt !== null, hitAt: run.capHitAt, dropped: run.eventsDropped },
+    devicesSeen: [...devicesSeen],
+    writes: pick(["write"]),
+    observations: pick(["list_new", "list_gone", "version_seen", "state", "unexpected"]),
+    versions: [...versions.values()],
+    observer: { status: run.observerStatus, records: pick(["observer_status", "observer_record"]) },
+    permissionTests,
+    unexpectedFiles: unexpected,
+    errors: pick(["error"]),
+    summary: summarize({ delaysBySource, selfDevice: run.device, stateCounts: counters.states, unexpected, writeFailures }),
+  };
+}
+
+function downloadTrace() {
+  try {
+    const blob = new Blob([JSON.stringify(traceDocument())], { type: "application/json" });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "onedrive-trace-" + (run.device || "unknown") + "-" + stamp + ".json";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    showMessage("runMessage", "ok", "Trace downloaded as " + a.download + ".");
+  } catch (e) {
+    reportError("download", e);
+    showMessage("runMessage", "err", "Download failed: " + errInfo(e).errName + " - " + errInfo(e).errMessage);
+  }
+}
+
+async function cleanUp() {
+  if (run.running || !run.traceDir || !DEVICE_NAME.test(run.device)) return;
+  const ok = confirm("Delete the folder " + TRACE_DIR + "/" + run.device + "/ and everything in it? Other devices' folders are not touched. Download the trace first if you have not.");
+  if (!ok) return;
+  try {
+    await run.traceDir.removeEntry(run.device, { recursive: true });
+    run.cleanedUp = true; run.ownFiles = [];
+    logEvent("cleanup", { removed: TRACE_DIR + "/" + run.device });
+    showMessage("runMessage", "ok", "Removed " + TRACE_DIR + "/" + run.device + "/.");
+  } catch (e) {
+    reportError("cleanup", e);
+    showMessage("runMessage", "err", "Clean up failed: " + errInfo(e).errName + " - " + errInfo(e).errMessage);
+  }
+}
+
+// ---------- rendering ----------
+const STAT_DEFS = [
+  ["cycles", "Write cycles done", () => counters.cycles],
+  ["files", "Files written", () => counters.filesWritten],
+  ["errors", "Errors", () => counters.errors + " (" + counters.writeErrors + " write)"],
+  ["devices", "Devices seen", () => devicesSeen.size],
+  ["complete", "Complete files", () => counters.states.complete],
+  ["empty", "Empty sightings", () => counters.states.empty],
+  ["truncated", "Truncated sightings", () => counters.states.truncated],
+  ["mismatch", "Checksum mismatches", () => counters.states.checksum_mismatch],
+  ["unreadable", "Unreadable sightings", () => counters.states.unreadable],
+  ["unexpected", "Unexpected files", () => unexpectedFiles.size],
+  ["observer", "Observer records", () => counters.observerRecords],
+  ["events", "Events stored", () => events.length + (run.capHitAt !== null ? " (cap hit)" : "")],
+];
+
+function buildStatsGrid() {
+  const grid = $("statsGrid");
+  for (const [id, label] of STAT_DEFS) {
+    const box = document.createElement("div"); box.className = "stat";
+    const b = document.createElement("b"); b.id = "stat-" + id;
+    const s = document.createElement("span"); s.textContent = label;
+    box.append(b, s);
+    grid.append(box);
+  }
+}
+
+function formatRemaining(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+function countdownText() {
+  const now = Date.now();
+  if (run.phase === "running") return formatRemaining(run.writerEndAt - now) + " of writing left";
+  if (run.phase === "tail") return formatRemaining(run.writerEndAt + TAIL_AFTER_WRITER_MS - now) + " of extra watching left, then it stops";
+  if (run.phase === "idle") return "not started";
+  return "stopped";
+}
+
+function renderStats() {
+  for (const [id, , get] of STAT_DEFS) $("stat-" + id).textContent = String(get());
+  $("phaseText").textContent = run.phase.charAt(0).toUpperCase() + run.phase.slice(1);
+  $("countdownText").textContent = countdownText();
+  const errBox = $("lastError");
+  errBox.className = run.lastError ? "err" : "hidden";
+  errBox.textContent = run.lastError ? "Last error: " + run.lastError : "";
+}
+
+function renderLog() {
+  const box = $("logBox");
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.textContent = recent.join("\n");
+  if (nearBottom) box.scrollTop = box.scrollHeight;
+}
+
+function tick() {
+  if (run.devDir) { renderStats(); renderLog(); }
+}
+
+// ---------- init ----------
+function init() {
+  renderEnvironment();
+  buildStatsGrid();
+  $("chooseBtn").addEventListener("click", chooseFolder);
+  $("reconnectBtn").addEventListener("click", () => reconnect().catch((e) => reportError("reconnect", e)));
+  $("startBtn").addEventListener("click", () => startRecording().catch((e) => reportError("start", e)));
+  $("stopBtn").addEventListener("click", () => finish("stopped"));
+  $("downloadBtn").addEventListener("click", downloadTrace);
+  $("cleanupBtn").addEventListener("click", () => cleanUp());
+  window.addEventListener("beforeunload", (ev) => { if (events.length > 0) { ev.preventDefault(); ev.returnValue = ""; } });
+  setInterval(tick, TICK_MS);
+  loadRememberedHandle();
+}
+init();
+</script>
+</body>
+</html>
