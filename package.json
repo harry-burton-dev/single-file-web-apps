@@ -16,6 +16,8 @@
     "smoke": "node framework/build/smoke.js",
     "release": "node framework/build/release.js",
     "keygen": "node framework/build/keygen.js",
-    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\""
+    "probes": "node --test \"framework/engine/test/breaker/*.probe.js\"",
+    "ci": "npm ci --no-audit --no-fund && npm run typecheck && npm test && npm run build:app",
+    "rubric": "node framework/build/rubric.js"
   }
 }

@@ -12,11 +12,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install
-        run: npm ci
-      - name: Engine and runtime tests
-        run: npm test
-      - name: Typecheck and build
+      # Install, typecheck, tests and build. A created project runs the same script.
+      - name: CI
+        run: npm run ci
+      - name: Browser for the smoke test
         run: |
-          npm run typecheck
-          npm run build:app
+          npm install --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      # Red until TR2 to TR5 land; see docs/framework/README.md section 3.
+      - name: Rubric
+        run: npm run rubric
