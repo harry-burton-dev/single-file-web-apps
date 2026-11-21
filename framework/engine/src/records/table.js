@@ -1,5 +1,5 @@
 // Backend-independent record layer (ADR-0002). A backend (yjs-backend.js) stores flat keys and implements:
-//   keys(), getPlain(key), getText(key), getAsk(id, field), schemaVersion(),
+//   keys(), getPlain(key), getText(key), getAsk(id, field, devices?), schemaVersion(), onChange(listener),
 //   write(fn(tx)) with tx.setPlain / updateText / setAsk / setSchemaVersion.
 import { DELETED, SEP, key2, parseKey } from "./keys.js";
 
@@ -38,23 +38,28 @@ export function createTable({ backend, schema, deviceId, user, clock }) {
     });
   }
 
-  // id -> Set of field names (excluding the deleted flag).
+  // id -> Map of field name (excluding the deleted flag) -> ask slot devices, in key order.
+  // One pass over the keys, so list() is linear in the number of keys.
   function index() {
     const ids = new Map();
     for (const key of backend.keys()) {
       const parsed = parseKey(key);
       if (!parsed) continue;
-      if (!ids.has(parsed.id)) ids.set(parsed.id, new Set());
-      if (parsed.field !== DELETED) ids.get(parsed.id).add(parsed.field);
+      if (!ids.has(parsed.id)) ids.set(parsed.id, new Map());
+      if (parsed.field === DELETED) continue;
+      const fields = ids.get(parsed.id);
+      if (!fields.has(parsed.field)) fields.set(parsed.field, []);
+      if (parsed.device !== null) fields.get(parsed.field).push(parsed.device);
     }
     return ids;
   }
 
-  function readField(id, field) {
+  // `devices` (from index()) lets an ask read skip the backend's key scan.
+  function readField(id, field, devices) {
     const kind = kindOf(field);
     if (kind === "text") return { value: backend.getText(key2(id, field)), conflict: null };
     if (kind === "ask") {
-      const candidates = backend.getAsk(id, field).sort(byRank);
+      const candidates = backend.getAsk(id, field, devices).sort(byRank);
       if (candidates.length === 0) return { value: undefined, conflict: null };
       const value = candidates[candidates.length - 1].value;
       return { value, conflict: candidates.length > 1 ? candidates : null };
@@ -62,11 +67,11 @@ export function createTable({ backend, schema, deviceId, user, clock }) {
     return { value: backend.getPlain(key2(id, field)), conflict: null };
   }
 
-  function readRecord(id, fieldNames) {
+  function readRecord(id, fieldMap) {
     const fields = {};
     const conflicts = {};
-    for (const name of [...fieldNames].sort()) {
-      const { value, conflict } = readField(id, name);
+    for (const name of [...fieldMap.keys()].sort()) {
+      const { value, conflict } = readField(id, name, fieldMap.get(name));
       if (value === undefined) continue;
       fields[name] = value;
       if (conflict) conflicts[name] = conflict;
@@ -106,6 +111,14 @@ export function createTable({ backend, schema, deviceId, user, clock }) {
       }
       return out;
     },
+    // Runs fn inside one backend transaction, so every write in it is one local update.
+    batch(fn) {
+      assertWritable();
+      let result;
+      write(() => { result = fn(); });
+      return result;
+    },
+    onChange: (listener) => backend.onChange(listener),
     remove(id) {
       assertId(id);
       write((tx) => tx.setPlain(key2(id, DELETED), true));
