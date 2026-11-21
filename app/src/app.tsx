@@ -2,14 +2,15 @@
 // connection indicator and sync inspector. Real screens replace this.
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { loadFolder, openDb, pickFolder, regrant, startHost, type Engine, type FolderState, type KeyValueDb } from "@trellis/framework";
+import { appNames, loadFolder, openDb, pickFolder, regrant, startHost, type Engine, type FolderState, type KeyValueDb } from "@trellis/framework";
+import app from "../app.config";
 import { ConnectionIndicator } from "./connection-indicator";
 import { loader } from "./loader-services";
 import { testWorkspaceKey } from "./test-key";
 import { SyncInspector } from "./sync-inspector";
 import { useSharedText, useSync } from "./use-engine";
 
-const DB_NAME = "workbench";
+const names = appNames(app);
 const USER_KEY = "host/user";
 const USER_RE = /^[a-z][a-z0-9]{1,15}$/;
 const TABLE = "scratch";
@@ -18,7 +19,7 @@ const DEV_PRIVATE_FOLDER_HASH = "#private-folder";
 /** Development only: the browser's private file area, so the page can be exercised without a folder picker. */
 async function privateFolder(): Promise<FolderState> {
   const origin = await navigator.storage.getDirectory();
-  return { status: "ready", handle: await origin.getDirectoryHandle("workbench-test", { create: true }) };
+  return { status: "ready", handle: await origin.getDirectoryHandle(`${app.id}-test`, { create: true }) };
 }
 
 type Session =
@@ -34,8 +35,8 @@ async function begin(db: KeyValueDb, folder: FolderState, user: string): Promise
   if (folder.status !== "ready") return { phase: "setup", db, folder, user };
   if (!USER_RE.test(user)) return { phase: "setup", db, folder, user, message: "Enter a short lower-case name first." };
   await db.set(USER_KEY, user);
-  const started = await startHost({ root: folder.handle, db, user, key: await testWorkspaceKey(), keyId: 0, tables: { [TABLE]: "yjs" } });
-  if (!started.ok) return { phase: "setup", db, folder, user, message: "Workbench is already open in another tab." };
+  const started = await startHost({ root: folder.handle, db, user, key: await testWorkspaceKey(), keyId: 0, app });
+  if (!started.ok) return { phase: "setup", db, folder, user, message: `${app.name} is already open in another tab.` };
   void loader()?.checkForUpdate(folder.handle);
   return { phase: "running", engine: started.engine, deviceId: started.deviceId, folderName: folder.handle.name };
 }
@@ -63,7 +64,7 @@ function Setup({ session, onChange }: { session: Extract<Session, { phase: "setu
       {folder.status === "needs-permission" ? (
         <Button onClick={run(() => regrant(folder.handle))}>Reconnect to "{folder.handle.name}"</Button>
       ) : (
-        <Button onClick={run(() => pickFolder(db))}>Choose the shared folder</Button>
+        <Button onClick={run(() => pickFolder(db, names.folderPicker))}>Choose the shared folder</Button>
       )}
       {session.message && <p id="message" className="text-sm text-destructive">{session.message}</p>}
     </div>
@@ -101,7 +102,7 @@ let booting: Promise<Session> | undefined;
  */
 function boot(): Promise<Session> {
   booting ??= (async () => {
-    const db = await openDb(DB_NAME);
+    const db = await openDb(names.database);
     const saved = await db.get(USER_KEY);
     if (import.meta.env.DEV && location.hash === DEV_PRIVATE_FOLDER_HASH) return begin(db, await privateFolder(), "tester");
     return begin(db, await loadFolder(db), typeof saved === "string" ? saved : "");
@@ -124,7 +125,7 @@ export function App() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
-      <h1 className="text-lg font-semibold">Workbench engine test page</h1>
+      <h1 className="text-lg font-semibold">{app.name} engine test page</h1>
       <p className="text-xs text-muted-foreground">
         Version {__APP_VERSION__}, built {__BUILT_AT__}. Uses a fixed test key: do not put real information in this page.
       </p>

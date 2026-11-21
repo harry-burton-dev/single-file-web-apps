@@ -86,7 +86,7 @@ function firstRun(
   button.addEventListener("click", () => {
     void (async () => {
       try {
-        folder = folder.status === "none" ? await pickFolder(db) : folder.status === "needs-permission" ? await regrant(folder.handle) : folder;
+        folder = folder.status === "none" ? await pickFolder(db, DB_NAME) : folder.status === "needs-permission" ? await regrant(folder.handle) : folder;
         if (folder.status !== "ready") return;
         const result = await check(folder.handle);
         const bundle = await cachedBundle(db);

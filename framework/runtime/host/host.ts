@@ -4,6 +4,8 @@
 // browser's online/offline hint.
 import { createEngine } from "../../engine/src/engine/engine.js";
 import { createYjsAdapter } from "../../engine/src/adapters/yjs.js";
+import type { AppDefinition } from "../definition";
+import { appNames } from "../names.ts";
 import type { Engine } from "./engine-types";
 import type { KeyValueDb } from "./idb";
 
@@ -19,7 +21,7 @@ export interface HostConfig {
   user: string;
   key: CryptoKey;
   keyId: number;
-  tables: Record<string, "yjs">;
+  app: AppDefinition;
 }
 
 export type HostStart =
@@ -59,9 +61,9 @@ function engineStore(db: KeyValueDb) {
  * Holds a Web Lock for as long as this tab runs the device, so a second tab
  * cannot write the same device's chunk files. Resolves false if another tab has it.
  */
-function holdDeviceLock(deviceId: string): Promise<{ held: boolean; release: () => void }> {
+function holdDeviceLock(lockName: string): Promise<{ held: boolean; release: () => void }> {
   return new Promise((resolve) => {
-    void navigator.locks.request(`workbench-device-${deviceId}`, { ifAvailable: true }, (lock) => {
+    void navigator.locks.request(lockName, { ifAvailable: true }, (lock) => {
       if (!lock) {
         resolve({ held: false, release: () => undefined });
         return undefined;
@@ -73,7 +75,7 @@ function holdDeviceLock(deviceId: string): Promise<{ held: boolean; release: () 
 
 export async function startHost(config: HostConfig): Promise<HostStart> {
   const deviceId = await deviceIdFor(config.db, config.user);
-  const lock = await holdDeviceLock(deviceId);
+  const lock = await holdDeviceLock(appNames(config.app).deviceLock(deviceId));
   if (!lock.held) return { ok: false, reason: "already-open" };
 
   const engine = (await createEngine({
@@ -87,7 +89,7 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
     user: config.user,
     deviceId,
     adapters: { yjs: createYjsAdapter({ random }) },
-    tables: config.tables,
+    tables: Object.fromEntries(Object.keys(config.app.tables).map((table) => [table, "yjs"])),
   })) as unknown as Engine;
   engine.setOffline(!navigator.onLine);
 
