@@ -4,7 +4,11 @@
   "description": "",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode bootstrap && vite build --mode app",
+    "build:bootstrap": "vite build --mode bootstrap",
+    "build:app": "vite build --mode app",
+    "test": "node --test \"test/**/*.test.js\"",
+    "smoke": "node scripts/smoke.js",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

@@ -79,6 +79,8 @@ The loader keeps the two most recent verified bundles. Opening the page with `#p
 
 ### 6. Loader contract
 
+As built (contract 1, `workbench/src/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `WORKBENCH_PUBLIC_KEY` or `workbench/signing-public-key.json`; the build fails without one.
+
 The bundle exports one entry function, called with the loader's services (folder connection, cache, update check, bootstrap version). The contract has a version number; the manifest states the minimum bootstrap each bundle needs, and the loader refuses a bundle it is too old for with a clear message.
 
 ### 7. Source layout and development
@@ -89,7 +91,7 @@ The bundle exports one entry function, called with the loader's services (folder
 | `workbench/` | App, loader and Vite configuration. |
 | `masters/` | The HTML entry pages Vite builds from. |
 
-`npm run dev` serves the app directly from `localhost`, without the loader, for quick iteration. A page on `localhost` does not behave exactly like one opened from disk, so behaviour is judged on the built files.
+`npm run dev` serves the app directly from `localhost` (`masters/workbench-dev.html`), without the loader, for quick iteration. A page on `localhost` does not behave exactly like one opened from disk, so behaviour is judged on the built files.
 
 ### 8. Release ("minting")
 
@@ -131,16 +133,18 @@ The bundle exports one entry function, called with the loader's services (folder
 - A module can be run from a Blob URL.
 - SHA-256 hashing and ECDSA signature verification work.
 
+- The built bootstrap, opened from disk, verifies a signed manifest and bundle, caches the bundle in IndexedDB, runs it from a Blob URL, starts from the cache on reload, and refuses a manifest signed with another key (`npm run smoke`). Sizes: bootstrap 9 KB, app bundle 409 KB.
+
 **Not yet verified**
 
-- Reading a bundle from a chosen folder and caching it in browser storage, from a page opened from disk.
+- Reading a bundle through a real folder handle from a page opened from disk. Headless Chrome cannot drive the folder picker and does not offer its private file area to pages opened from disk, so the smoke test uses an in-page stand-in folder.
 - Any of this on the work laptops, under their browser policies.
 
 ## Action Items
 
-1. [ ] Build the bootstrap and loader, with tests for every verification failure path.
-2. [ ] Add the three Vite build targets.
+1. [x] Build the bootstrap and loader, with tests for every verification failure path (`workbench/src/loader/`, `workbench/src/bootstrap/`, `workbench/test/loader/`).
+2. [ ] Add the three Vite build targets. Done: `bootstrap` and `app` (`npm run build`). The `admin` target waits for the admin app (item 3).
 3. [ ] Add key generation, backup and "publish release" to the admin app.
-4. [ ] Script the from-disk smoke test so a failed check fails the release.
+4. [x] Script the from-disk smoke test so a failed check fails the release (`npm run smoke`).
 5. [x] Remove Automerge from the code and dependencies.
 6. [ ] Try the bootstrap and a bundle on a work laptop.
