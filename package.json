@@ -7,7 +7,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/test/*.test.js\"",
+    "test": "node --test \"framework/engine/test/**/*.test.js\" && node --test \"framework/runtime/test/**/*.test.js\" && node --test \"framework/data/test/**/*.test.js\" && node --test \"framework/test/*.test.js\"",
     "typecheck": "tsc --noEmit -p framework && tsc --noEmit -p app",
     "build": "npm run build:bootstrap && npm run build:app",
     "build:app": "vite build --config framework/build/vite.config.js --mode app",
