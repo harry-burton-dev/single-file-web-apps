@@ -26,9 +26,9 @@ export async function regrant(handle: FileSystemDirectoryHandle): Promise<Folder
 }
 
 /** Show the folder picker. Must be called from a click. Returns "none" if cancelled. */
-export async function pickFolder(db: KeyValueDb): Promise<FolderState> {
+export async function pickFolder(db: KeyValueDb, pickerId: string): Promise<FolderState> {
   try {
-    const handle = await window.showDirectoryPicker({ id: "workbench", ...READ_WRITE });
+    const handle = await window.showDirectoryPicker({ id: pickerId, ...READ_WRITE });
     await db.set(HANDLE_KEY, handle);
     return { status: "ready", handle };
   } catch (error: unknown) {

@@ -71,7 +71,7 @@ export async function verifyManifest({ text, publicKey, subtle }) {
   } catch {
     ok = false;
   }
-  if (!ok) throw new LoaderError("signature-invalid", "The release manifest is not signed by the workbench admin. It was ignored.");
+  if (!ok) throw new LoaderError("signature-invalid", "The release manifest is not signed by this app's admin. It was ignored.");
   let body;
   try {
     body = JSON.parse(file.body);

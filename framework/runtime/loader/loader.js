@@ -50,7 +50,7 @@ async function accept(input) {
   const listed = body.bundles[version];
   if (!listed) throw new LoaderError("bundle-unlisted", `The release manifest names version ${version} but does not describe it.`);
   if (listed.minBootstrap > bootstrapVersion) {
-    throw new LoaderError("bootstrap-too-old", `Version ${version} needs a newer workbench.html. Ask the admin for the current one.`);
+    throw new LoaderError("bootstrap-too-old", `Version ${version} needs a newer bootstrap page. Ask the admin for the current one.`);
   }
   const at = state.bundles.findIndex((b) => b.version === version && b.sha256 === listed.sha256);
   if (at === 0) return { status: "current", version };

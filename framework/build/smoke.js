@@ -18,6 +18,7 @@ import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
+import definition from "./app-definition.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const { subtle } = webcrypto;
@@ -27,7 +28,7 @@ const DIST = join(ROOT, "dist");
 const RELEASE = join(DIST, "smoke-release");
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const bundleName = `app-${version}.js`;
-const APP_HEADING = "Workbench engine test page";
+const APP_HEADING = `${definition.name} engine test page`;
 
 const newKey = () => subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
 
