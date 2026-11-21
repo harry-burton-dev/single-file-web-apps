@@ -141,7 +141,7 @@ No read position is stored, unlike Tonsky's design. Every adapter's updates are 
 - Its metadata lists what it **covers**: for every device, the highest sealed chunk included. Open chunks are never counted as covered, because they can still grow.
 - **Coverage is by identity, not just number.** The snapshot also lists an id for the exact version of each chunk it includes (taken from that file's random IV). A device whose store was wiped can reuse a chunk number; without the id, its new chunk would be treated as already covered, skipped, and later deleted. (Found by simulation.)
 - A device that finds one of its own chunks shadowed this way writes a fresh snapshot of its whole table and moves its numbering above the covered range.
-- A device writes a snapshot for a table when the table's folder holds more than 50 chunk files (the `compact-50` setting, chosen after the 90-day comparison) and no snapshot newer than 7 days exists. A random delay avoids several devices doing it at once; if two do, both are valid.
+- A device writes a snapshot for a table when the table's folder holds more than 50 chunk files and no snapshot newer than 7 days exists. (The threshold was 200 until 2026-11-21. A 90-day simulated run, one seed, ended with 215 files at 50 against 1,503 at 200, for about 15% more upload.) A random delay avoids several devices doing it at once; if two do, both are valid.
 - The admin app can force a snapshot.
 
 *Deleting superseded files*
