@@ -73,7 +73,7 @@ Order: S1 first. S2, S3 and the engine half of S5 can run side by side. S4 next.
 
 ## 5. Rules for running this unattended
 
-- One pull request per epic, opened as a draft, named `TRELLIS · S<n> · <summary>`. Do not merge; Harry merges.
+- One pull request per Linear issue, opened as a draft straight to `main`, named `TRELLIS · S<n> · <issue> · <summary>`. Do not merge; Harry merges each one.
 - Tests are written first and seen to fail. A gate is never met by skipping, deleting or weakening a test.
 - No long simulation runs. The short sanity run (5 seeds, two fault profiles) is the limit unless a change touches engine save, scan or compaction logic, in which case 30 seeds of `short` under `rough` and `hostile`.
 - Every decision listed under "Defaults chosen" in a spec is taken as written. Anything not covered that changes file formats, key handling or the loader contract stops the epic and is reported, with a recommendation.
