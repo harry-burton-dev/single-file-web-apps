@@ -3,6 +3,7 @@
 // event; this decides the next state. Messages arrive already worded, so the
 // reducer knows no strings. An event that does not apply to the current
 // state leaves it as it is (the same object).
+import type { Data } from "../../data/runtime";
 import type { Engine } from "../host/engine-types";
 import type { FolderState } from "../host/folder";
 import type { HostStart } from "../host/host";
@@ -12,6 +13,8 @@ import type { Identity } from "../identity/types";
 
 export interface Session {
   engine: Engine;
+  /** The data runtime the screens read and write through; made once per engine. */
+  data: Data;
   stop: () => Promise<void>;
   deviceId: string;
   user: Identity["user"];
@@ -29,11 +32,14 @@ export type ShellState =
   | { phase: "running"; db: KeyValueDb; root: Root; session: Session; reconnect: "none" | "needed" | "granted"; message?: string }
   | { phase: "failed"; message: string; detail?: string };
 
+/** A started host with its data runtime; stop() closes both. */
+export type Started = Extract<HostStart, { ok: true }> & { data: Data };
+
 export type ShellEvent =
   /** The folder was looked up, picked or regranted; the passport was looked up once the folder is ready. */
   | { type: "folder"; db: KeyValueDb; folder: FolderState; passport: PassportState; message?: string }
   | { type: "passport"; passport: PassportState; message?: string }
-  | { type: "started"; identity: Identity; result: HostStart }
+  | { type: "started"; identity: Identity; result: Started | Extract<HostStart, { ok: false }> }
   | { type: "message"; message: string }
   | { type: "health"; disconnected: boolean; permission: PermissionState }
   | { type: "regranted"; granted: boolean; message?: string }
@@ -63,7 +69,7 @@ export function reduce(state: ShellState, event: ShellEvent): ShellState {
       const { db, root } = state;
       const { identity, result } = event;
       if (!result.ok) return { phase: "already-open", db, root, identity };
-      return { phase: "running", db, root, session: { engine: result.engine, stop: result.stop, deviceId: result.deviceId, user: identity.user }, reconnect: "none" };
+      return { phase: "running", db, root, session: { engine: result.engine, data: result.data, stop: result.stop, deviceId: result.deviceId, user: identity.user }, reconnect: "none" };
     }
     case "message":
       return state.phase === "starting" || state.phase === "failed" || state.phase === "already-open" ? state : { ...state, message: event.message };
