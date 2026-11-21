@@ -5,7 +5,7 @@
 ## Start from
 
 - ADR-0003 (identity, keys and the admin app): the design. Read it first; where it and this spec differ, the ADR wins and the difference is reported.
-- `app/test-key.ts`: the fixed key to delete.
+- `app/src/test-key.ts`: the fixed key to delete (deleted in TR3, OUT-11).
 - `framework/runtime/loader/manifest.js`, `scripts/keygen.js`, `scripts/release.js`: the signing side, already built.
 - ADR-0005 action item 3 and the unbuilt `admin` build target.
 

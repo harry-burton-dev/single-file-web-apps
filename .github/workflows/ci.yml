@@ -23,3 +23,5 @@ jobs:
         run: |
           export TRELLIS_PUBLIC_KEY="$(npm run --silent keygen | sed -n 's/^TRELLIS_PUBLIC_KEY=//p')"
           npm run build
+      - name: No fixed test key in the build
+        run: npm run check:no-test-key

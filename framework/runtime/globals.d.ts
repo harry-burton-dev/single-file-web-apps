@@ -18,4 +18,10 @@ interface FileSystemHandle {
 }
 interface Window {
   showDirectoryPicker(options?: { id?: string; mode?: "read" | "readwrite" }): Promise<FileSystemDirectoryHandle>;
+  showSaveFilePicker(options?: { suggestedName?: string; types?: FilePickerType[] }): Promise<FileSystemFileHandle>;
+  showOpenFilePicker(options?: { types?: FilePickerType[] }): Promise<FileSystemFileHandle[]>;
+}
+interface FilePickerType {
+  description?: string;
+  accept: Record<string, string[]>;
 }
