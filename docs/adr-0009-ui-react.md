@@ -28,6 +28,8 @@ The UI is **React** (version 19), bundled by Vite.
 
 **As built (TR2, spec S2):** `useQuery` became three read hooks, `useRecords(table, query?)`, `useRecord(table, id)` and `useField(table, id, field)`, plus `useConflicts()` and `useResolveConflict()` for "ask" conflicts. `useCommand(name)` returns a function that runs the command synchronously and returns its result; it never throws. The shell (`<TrellisApp>`) makes the data runtime once per started engine and puts the screens inside `<DataProvider>`. Row and field types are inferred from `app/app.config.ts`. The public entry no longer exports the engine, `startHost`, `SharedMap` or `useEngine`, so a screen cannot reach them.
 
+**As built (TR4, spec S4):** `useHealth()` returns the engine's health and re-renders when it changes, or `null` before an engine exists (`framework/runtime/shell/context.ts`; test `health-indicator.test.tsx`). The shell exports `Button` and `Badge` for apps to use, and its pieces use only the project's Tailwind tokens (`rules.test.tsx` fails on any other colour under `shell/`).
+
 ### 2. Plugins share the host's React
 
 A plugin is a separate bundle (ADR-0006). If it carried its own copy of React, its components could not use hooks alongside the app's. So:
@@ -40,6 +42,8 @@ A plugin is a separate bundle (ADR-0006). If it carried its own copy of React, i
 ### 3. Failure containment
 
 Every plugin view, and every top-level screen, is rendered inside a React error boundary. A view that throws shows a contained error with the plugin's name; the rest of the app keeps working.
+
+**As built (TR4):** one error boundary (`framework/runtime/shell/error-boundary.tsx`) wraps the shell's content, including the app's screens. A screen that throws shows an error screen with the message and, where an engine exists, a button to the diagnostics view. Tests: `error-boundary.test.tsx`, and "an error in the app's screens shows the error screen" in `trellis-app.test.tsx`. Plugin views do not exist yet, so they have no boundary.
 
 ### 4. Language: TypeScript (decided 2026-11-21)
 
@@ -80,6 +84,7 @@ Routing and screen layout. These are app-level choices and do not affect the lay
 
 - The app bundle is larger. Smoke-build sizes: engine and Yjs 110 KB; with React 329 KB; with Tailwind and two shadcn components **397 KB (126 KB compressed)**. The budget in ADR-0005 is 500 KB, and the record, command and query layers and the app itself still have to fit, so the budget will have to be raised or the bundle split.
 - The `shadcn` package's own tooling reports 4 moderate advisories. It is used at build time only and is not in the shipped file, but it should be kept current.
+- **As built (TR4, 2026-11-22):** bootstrap 9,535 bytes, app bundle with the framework, shell and example app 466,580 bytes, both uncompressed. The build fails over 50,000 and 500,000 bytes (`framework/build/size-budget.js`, gate G11), so the budget was not raised and the bundle is not split.
 - Upgrading React's major version is a breaking change for plugins.
 - Plugins that use JSX need a build step.
 
@@ -98,5 +103,5 @@ Routing and screen layout. These are app-level choices and do not affect the lay
 
 1. [x] Build the read hooks, `useCommand` and `useHealth` (TR2 and TR4; `useQuery` became `useRecords`, `useRecord` and `useField`).
 2. [ ] Add React, as an external, to the plugin build and the plugin contract.
-3. [ ] Add error boundaries around screens and plugin views.
-4. [ ] Revisit the 500 KB budget once the first real screens exist.
+3. [x] Add error boundaries around screens and plugin views (TR4: screens; plugin views get one when plugins are built).
+4. [x] Revisit the 500 KB budget once the first real screens exist (TR4: kept at 500,000 bytes; 466,580 used, 33,420 bytes headroom, about 7%, with the example app's one screen. The next large dependency will need the bundle split or the budget raised, which is Harry's call).
