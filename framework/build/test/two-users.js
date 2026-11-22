@@ -27,12 +27,17 @@
 // reproduced). Reading a real folder handle and keeping it in IndexedDB are
 // also not covered. Hashing, signature checks, the IndexedDB cache, enrolling,
 // the engine, the shell and the app are real.
+//
+// `--release <folder>` skips the build and runs against a release folder made
+// elsewhere, such as the <name>/ folder unzipped from a GitHub Release (gate
+// G13). Its bootstrap and signed manifest are used as they are.
 // Needs Playwright with Chromium installed. Exit code 1 on any failed check.
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex, signManifest } from "../../runtime/loader/manifest.js";
 import { mintInvite, newKeyring } from "../../runtime/identity/admin.js";
@@ -46,7 +51,8 @@ const { subtle } = webcrypto;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VITE_CONFIG = join(ROOT, "framework", "build", "vite.config.js");
 const DIST = join(ROOT, "dist");
-const RELEASE = join(DIST, "two-users-release");
+const { values: args } = parseArgs({ options: { release: { type: "string" } } });
+const RELEASE = args.release ? resolve(args.release) : join(DIST, "two-users-release");
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const names = appNames(definition);
 const bundleName = names.bundleFile(version);
@@ -187,7 +193,7 @@ async function openPrompt(u) {
 
 const item = (view, id) => view.items.find((i) => i.id === id);
 
-await buildRelease();
+if (!args.release) await buildRelease();
 const folder = await createStandInFolder();
 cpSync(join(RELEASE, "app"), join(folder.dir, "app"), { recursive: true });
 const [alice, bob] = await makeWorkspace(folder, [{ id: "alice", name: "Alice" }, { id: "bob", name: "Bob" }]);

@@ -39,8 +39,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view --json tagName > /dev/null 2>&1; then
-            gh release download --pattern manifest.json --dir dist/previous
+          # The newest published release, pre-releases included, so v0.1.0
+          # lists the v0.1.0-rc.1 rehearsal bundle (`gh release view` alone
+          # skips pre-releases).
+          PREVIOUS="$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          if [ -n "$PREVIOUS" ]; then
+            echo "Previous release: $PREVIOUS"
+            gh release download "$PREVIOUS" --pattern manifest.json --dir dist/previous
           else
             echo "No earlier release: this is the first."
           fi
@@ -66,4 +71,11 @@ jobs:
           FOLDER: ${{ steps.release.outputs.folder }}
           ZIP: ${{ steps.release.outputs.zip }}
           TITLE: ${{ steps.release.outputs.title }}
-        run: gh release create "$GITHUB_REF_NAME" "dist/release/$ZIP" "dist/release/$FOLDER/app/manifest.json" --title "$TITLE" --generate-notes
+        # A tag with a hyphen (v0.1.0-rc.1) is a pre-release. Notes come from
+        # docs/framework/release-notes-<tag without the -suffix>.md when it exists.
+        run: |
+          FLAGS=()
+          case "$GITHUB_REF_NAME" in *-*) FLAGS+=(--prerelease) ;; esac
+          NOTES="docs/framework/release-notes-${GITHUB_REF_NAME%%-*}.md"
+          if [ -f "$NOTES" ]; then FLAGS+=(--notes-file "$NOTES"); else FLAGS+=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" "dist/release/$ZIP" "dist/release/$FOLDER/app/manifest.json" --title "$TITLE" "${FLAGS[@]}"
