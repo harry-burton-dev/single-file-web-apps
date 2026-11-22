@@ -108,17 +108,19 @@ One npm workspace root holds `framework` and `app`, with one lockfile; every com
 4. In the admin app, publish: copy the bundle into `app/`, then write the new signed manifest.
 5. Colleagues receive it on their next update check.
 
-### 9. Release pipeline as built (2026-11-21)
+### 9. Release pipeline as built (2026-11-21, updated 2026-11-22)
 
 Until the admin app exists, a release is produced by GitHub Actions, not by the admin app:
 
-- **CI** (`.github/workflows/ci.yml`): on every pull request and push to `main`, runs `npm ci`, `npm test` (engine and runtime tests), `npm run typecheck` and `npm run build:app` from the root.
+- **CI** (`.github/workflows/ci.yml`): on every pull request and push to `main`, runs `npm run ci` (clean install, typecheck, tests, full build with size budgets, using a throwaway public key), the probes, the fixed-key check, the two-user test and `npm run rubric`; a second job creates `demo-app` and runs its own `npm run ci`.
 - **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `<id>-1.2.0.zip`. The zip is the `<name>/` folder of section 2, ready to copy into the shared folder. `framework/build/release.js` writes the folder, zip name and release title to the workflow's outputs, so the workflow holds no app name.
 - **Keys:** `npm run keygen` (`framework/build/keygen.js`) prints a key pair. The public key is the repository variable `TRELLIS_PUBLIC_KEY`; the private key is the repository secret `TRELLIS_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
 - **Serial:** the build time in seconds, and always at least one above the previous manifest's.
 - **History:** the release also publishes `manifest.json` as its own asset. The next release downloads it from the newest published GitHub Release, pre-releases included (`gh release list`, then `gh release download`) and passes it to `release.js --previous`, which verifies its signature with the public key and lists its bundles again in the new manifest. A previous manifest that fails verification stops the release; no latest release means the first release. A version already listed with a different hash is refused, since bundles are write-once. The zip holds only the new bundle: earlier ones are already in the shared folder, because a release is copied over it. A fresh folder that lacks an old bundle is safe, since the loader only reads the bundle a channel points at. The manifest stays format 1 with no new field.
 - **Pre-releases and notes:** a tag with a hyphen, such as `v0.1.0-rc.1`, is published as a pre-release. The release notes come from `docs/framework/release-notes-<tag without the suffix>.md` when that file exists, so a rehearsal and its release share one notes file; otherwise GitHub generates them.
 - **Rollback:** `npm run release -- --rollback <version> --previous <manifest.json>` builds nothing. It signs a manifest with a new serial pointing `stable` at a version the previous manifest lists, refuses one it does not, and writes only `<name>/app/manifest.json` to copy into the shared folder. It runs where the signing key is, so today on the admin's machine with the two key variables set; it is not published as a GitHub Release, and the next release still lists every bundle because it builds on the last published manifest.
+- **First runs (2026-11-22):** `v0.1.0-rc.1` and `v0.1.0` were both tagged on `main` at 3e4cd75. The rc run first failed at signing because the stored `TRELLIS_SIGNING_KEY` held a second line after the JSON; a new key pair was made and the run re-run. `v0.1.0`'s manifest lists `0.1.0-rc.1` and `0.1.0`, with stable at `0.1.0`. Both zips, downloaded from GitHub and unzipped, passed `npm run two-users -- --release <folder>` (gate G13).
+- **Tags:** a cloud Claude session can push only its own branch, so release tags are pushed by Harry or from his machine.
 - **Limits:** a rollback made locally is not recorded on GitHub, so the next tagged release takes its serial from the clock and its history from the last published manifest.
 
 ## Options Considered
