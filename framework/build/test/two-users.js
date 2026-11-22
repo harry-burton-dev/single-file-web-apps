@@ -1,4 +1,6 @@
-// Two-user test from built files (S4 Deliver 5, gate G7). Builds the
+// Two-user test from built files (S4 Deliver 5, gate G7). It lives under test/
+// because it drives the example app by its table and field names, which gate G4
+// keeps out of framework source. Builds the
 // bootstrap and the app bundle with a throwaway signing key, puts the signed
 // release into a stand-in shared folder (stand-in-folder.js), and opens the
 // bootstrap page from disk (file://) in two browser contexts. Each context has
@@ -32,16 +34,16 @@ import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
-import { mintInvite, newKeyring } from "../runtime/identity/admin.js";
-import { workspaceFileFor } from "../runtime/identity/workspace.js";
-import { appNames } from "../runtime/names.ts";
-import definition from "./app-definition.js";
-import { createStandInFolder } from "./stand-in-folder.js";
+import { sha256Hex, signManifest } from "../../runtime/loader/manifest.js";
+import { mintInvite, newKeyring } from "../../runtime/identity/admin.js";
+import { workspaceFileFor } from "../../runtime/identity/workspace.js";
+import { appNames } from "../../runtime/names.ts";
+import definition from "../app-definition.js";
+import { createStandInFolder } from "../stand-in-folder.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const { subtle } = webcrypto;
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VITE_CONFIG = join(ROOT, "framework", "build", "vite.config.js");
 const DIST = join(ROOT, "dist");
 const RELEASE = join(DIST, "two-users-release");
