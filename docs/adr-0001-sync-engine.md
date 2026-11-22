@@ -34,7 +34,7 @@ Automerge was trialled as a second adapter and dropped. In simulation it behaved
 | Documents ("tables"), one per name, each through a CRDT adapter | What the tables mean (ADR-0002 defines the record model on top) |
 | Local database, chunk files, encryption envelope | Where the key comes from (ADR-0003) |
 | Save and read scheduling, retries | Screens, including the sync panel (ADR-0004) |
-| Events: changed, saved, received, error | Features |
+| Events: changed, accepted, saved, received, error | Features |
 
 Surface, in outline:
 
@@ -133,6 +133,12 @@ No read position is stored, unlike Tonsky's design. Every adapter's updates are 
 
 - **Backup:** a full snapshot of each table as a `.ywb` file under `backups/`. Restoring is placing a snapshot in a fresh folder.
 
+*As built (TR5, OUT-45 and OUT-48).* The engine itself does not write backups, so a device still writes only its own paths (P8); `framework/runtime/backup/backup.js` does it from outside.
+
+- **Back up now** (admin page) writes `backups/<UTC stamp>/<table>.ywb`: one sealed snapshot per table, in the usual `.ywb` envelope with the current key and `meta.kind` `"backup"`. A second backup in the same second takes the next free stamp; nothing is overwritten. There are no scheduled backups in v0.1.0.
+- **Download backup** packs that folder as one store-only zip, `backup-<stamp>.zip`, with entries `<stamp>/<table>.ywb`.
+- **Restore into an empty folder** (admin page, on a folder with no `workspace.json`) asks for the key backup, its passphrase and the zip. It refuses a folder that already has `data/`, and reads and decrypts the whole zip before writing anything. It then puts each snapshot in the admin page's local store, starts an engine on the folder and calls `reseed()`, so the folder's only data is a fresh snapshot with fresh coverage written by the admin page's device. `workspace.json` is written from the key backup last. The restoring device's local store must hold nothing for those tables. No new file format.
+
 **Compaction is part of the design, not optional.** Every session starts a new chunk per table touched, so three devices and ten tables can produce several thousand small files a year. That slows OneDrive and the first load on a new device.
 
 *Snapshots*
@@ -223,12 +229,11 @@ An independent test pass found eight faults the simulation had missed. All eight
   - *Repair.* If the damaged file is the chunk the session is still writing, it is written again from memory. Otherwise the device publishes one snapshot of the whole table. What is owed is kept in the local store, so it survives a restart. Repairs for one table are at least `ownCheckMs` apart, so two profiles that wrongly share a device id cannot rewrite each other's file in a loop.
   - *Health.* While a repair is owed, health reports `saving` with `repairing: true`, never `saved`.
   - *Cost.* A browser profile restored from backup, or a crash between a write and the store update that records it, looks the same as a rollback and costs one extra snapshot. To keep that rare, the record of a write is now stored as part of the save, not at the next scan.
+- **A crash after an edit loses nothing the engine accepted** (P14a, P14b). The engine emits `accepted` once an edit's pending write is in the local store. An edit not yet accepted when the device crashes may be lost, but only on both devices alike; an accepted edit is on the restarted device and on the colleague. The probes were corrected to the test spec's rule for P3, "a change is durable once the engine has accepted it".
+- **No idle growth of stored traces** (P15). Routine traces (a scheduled scan or status with outcome ok and nothing applied, deleted or failed) are still emitted but stay in memory, so an idle device's `trace/seg/*` keys stop growing.
+- **Health judges peers on this device's clock.** The health display's "active" and "last heard" now come from `status-seen`, as deletion already did, so a colleague's wrong clock cannot mislabel their device.
 
-**Open**
-
-- **Crash within the first few store calls after an edit** loses that edit. Narrowed but not closed; unspecified.
-- **Idle growth of stored trace segments** (`trace/seg/*` keys) over thousands of idle ticks.
-- The health display still uses the colleague's `lastActiveAt` for "active", so a wrong clock can mislabel a device there. It does not affect deletion.
+All probes (`npm run probes`) pass and run in CI and in the release workflow.
 
 ## Action Items
 

@@ -47,6 +47,7 @@ Everything is bundled; nothing is fetched from the network at run time. No WebAs
   data/  status/  backups/
 ```
 
+- **`backups/`** holds one folder per backup, `backups/<UTC stamp>/<table>.ywb`, written only by the admin page's "Back up now" (ADR-0001 section 8). "Download backup" gives the same folder as one zip, `backup-<stamp>.zip`, to keep away from the shared folder; the admin page restores it into an empty folder together with the key backup.
 - **Bundles are write-once**, with the version in the file name. They are never rewritten.
 - **`manifest.json` is the only file that changes.** It is one file holding a body and a signature over that body, so the two can never be out of step.
 
@@ -81,7 +82,7 @@ The loader keeps the two most recent verified bundles. Opening the page with `#p
 
 ### 6. Loader contract
 
-As built (contract 1, `framework/runtime/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `TRELLIS_PUBLIC_KEY` or `app/signing-public-key.json`; the build fails without one.
+As built (contract 1, `framework/runtime/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. An optional `onUpdate(listener)` service (added 2026-11-21, OUT-37, approved by Harry) lets the running app hear each check's result and returns an unsubscribe function. While anything is subscribed the bootstrap draws no note, so the shell's update notice shows it in the app's design and wording; a subscriber that arrives after a check hears its result and the bootstrap's note is taken down. With no subscriber the bootstrap draws its own note as before, so an app that fails before it mounts is still told. The contract number and `BOOTSTRAP_VERSION` stay at 1 because no bootstrap had been handed out. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `TRELLIS_PUBLIC_KEY` or `app/signing-public-key.json`; the build fails without one.
 
 The bundle exports one entry function, called with the loader's services (folder connection, cache, update check, bootstrap version). The contract has a version number; the manifest states the minimum bootstrap each bundle needs, and the loader refuses a bundle it is too old for with a clear message.
 
@@ -117,7 +118,7 @@ Until the admin app exists, a release is produced by GitHub Actions, not by the 
 - **Serial:** the build time in seconds, and always at least one above the previous manifest's.
 - **History:** the release also publishes `manifest.json` as its own asset. The next release downloads it from the latest GitHub Release (`gh release download`) and passes it to `release.js --previous`, which verifies its signature with the public key and lists its bundles again in the new manifest. A previous manifest that fails verification stops the release; no latest release means the first release. A version already listed with a different hash is refused, since bundles are write-once. The zip holds only the new bundle: earlier ones are already in the shared folder, because a release is copied over it. A fresh folder that lacks an old bundle is safe, since the loader only reads the bundle a channel points at. The manifest stays format 1 with no new field.
 - **Rollback:** `npm run release -- --rollback <version> --previous <manifest.json>` builds nothing. It signs a manifest with a new serial pointing `stable` at a version the previous manifest lists, refuses one it does not, and writes only `<name>/app/manifest.json` to copy into the shared folder. It runs where the signing key is, so today on the admin's machine with the two key variables set; it is not published as a GitHub Release, and the next release still lists every bundle because it builds on the last published manifest.
-- **Limits:** a rollback made locally is not recorded on GitHub, so the next tagged release takes its serial from the clock and its history from the last published manifest. The adversarial probes (`npm run probes`) are not part of CI; three of them still fail.
+- **Limits:** a rollback made locally is not recorded on GitHub, so the next tagged release takes its serial from the clock and its history from the last published manifest.
 
 ## Options Considered
 

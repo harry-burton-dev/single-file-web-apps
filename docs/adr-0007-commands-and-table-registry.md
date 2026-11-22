@@ -1,6 +1,6 @@
 # ADR-0007: Command layer and table registry
 
-**Status:** Proposed
+**Status:** Accepted, reduced for v0.1.0 (built in TR2, 2026-11-21; see "As built")
 **Date:** 2026-11-21
 **Deciders:** Harry
 **Epic:** EA · EA Workbench
@@ -134,6 +134,17 @@ command layer  ----------------  query layer
 
 Reads go through a separate query layer (its own ADR). The command layer and registry are pure code with no browser dependency. They live beside the engine and are tested in Node.
 
+### As built (TR2, spec S2)
+
+What v0.1.0 has, where it differs from the sections above:
+
+- **Registry (section 1).** There is no `defineTable`. Tables and fields are declared once in `app/app.config.ts` (`AppDefinition`, spec S1). A field is a kind (`"latest"`, `"ask"`, `"text"`) or `{ kind, type }` with a type of `"string"`, `"number"` or `"boolean"`; `"ref"` is not a type. At start, `createData` opens every declared table through the record layer (`framework/data/registry.ts`); tables the definition does not name are left alone. Plugin tables are not built (ADR-0006 is later).
+- **Commands (sections 2 and 3).** `defineCommand(name, (tx, input) => value)`, run with `useCommand(name)` in screens or `data.run` in the framework. The handler calls `tx.put / remove / restore / resolve`, which only buffer: nothing is written until it returns, every change is checked, then each table is written in one batch. So commands still plan and the layer applies, without a separate change vocabulary. There is no `text(...)` change: a `put` to a text field is diffed into the shared text, so concurrent edits merge. Reads (`tx.get`, `tx.list`) are a snapshot taken on first use and do not see the command's own changes.
+- **Built-ins.** `records.create`, `records.update`, `records.remove`, `records.restore`, `records.resolve`, taking the table name as input, so the framework names no app table (G4).
+- **Checks (section 4).** Steps 2, 4, 5 and 7 are built: unknown table or field, wrong value type, a write to a deleted record and a table stored at a newer schema version all fail with nothing written. Step 1 is not: there is no input schema, so handlers check their own input. Read-only users are not checked.
+- **Results.** `run` is synchronous and never throws: `{ ok: true, value, changes }` or `{ ok: false, code, error }`, with code `failed`, `invalid`, `schema-too-new` or `unknown-command`. A run notifies the screens reading the written tables before it returns.
+- **Not built in v0.1.0:** undo (section 6), the synced `activity` table (section 7), titles, the command palette and permissions. Each run is kept in a local, per-device log of the last 200 runs, with every touched record's prior row, so undo can be added.
+
 ## Options Considered
 
 | Option | Complexity | Drawback |
@@ -173,9 +184,9 @@ Reads go through a separate query layer (its own ADR). The command layer and reg
 
 ## Action Items
 
-1. [ ] Build the table registry and wire it to the engine's table list and the record layer's schemas.
-2. [ ] Build the command layer: input validation, planning, change validation, apply, result.
+1. [x] Build the table registry and wire it to the engine's table list and the record layer's schemas (TR2).
+2. [x] Build the command layer: planning, change validation, apply, result (TR2). Input validation is left to each handler.
 3. [ ] Add per-command undo across tables.
 4. [ ] Add the local activity log and the synced `activity` table.
 5. [ ] Add a command-sequence workload to the simulator.
-6. [ ] Write the query layer ADR.
+6. [x] Write the query layer ADR (ADR-0008).

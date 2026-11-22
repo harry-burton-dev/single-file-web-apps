@@ -3,6 +3,7 @@
 // app/app.config.ts through appNames:
 //
 //   <name>/<id>.html                 the bootstrap, holding the public key
+//   <name>/<id>-admin.html           the admin page (no loader; holds no key)
 //   <name>/app/<id>-<version>.js     the app bundle
 //   <name>/app/manifest.json         signed: points the stable channel at this version
 //
@@ -91,11 +92,12 @@ if (args.rollback) {
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const bundleName = names.bundleFile(version);
 
-for (const mode of ["bootstrap", "app"]) execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit" });
+for (const mode of ["bootstrap", "app", "admin"]) execFileSync("npx", ["vite", "build", "--config", VITE_CONFIG, "--mode", mode], { cwd: ROOT, stdio: "inherit" });
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, "app"), { recursive: true });
 copyFileSync(join(DIST, "bootstrap.html"), join(OUT, names.bootstrapFile));
+copyFileSync(join(DIST, "admin.html"), join(OUT, names.adminFile));
 copyFileSync(join(DIST, "app", bundleName), join(OUT, "app", bundleName));
 
 const bundle = readFileSync(join(OUT, "app", bundleName));
