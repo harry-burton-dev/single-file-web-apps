@@ -15,6 +15,10 @@ import { TrellisApp } from "../trellis-app";
 import { PassportError } from "../../identity/passport.js";
 import { DEVICE, FOLDER, fakeServices, folderHandle, PASSPORT_FILE, USER } from "./helpers/fake-services";
 import type { UpdateResult } from "../../loader/contract";
+import { ConflictPrompt } from "../conflict-prompt";
+import { clockAndDate } from "../format";
+import { DataProvider } from "../../../react/hooks";
+import type { Data } from "../../../data/runtime";
 
 afterEach(() => {
   cleanup();
@@ -134,6 +138,27 @@ test("sentinel strings: the update notice, ready and refused, uses no other word
     expect(strayWords(wording(), [...DATA, "1.1.0", "refusal"]), result.status).toEqual([]);
     cleanup();
   }
+});
+
+test("sentinel strings: the conflict prompt, closed and open, uses no other wording", () => {
+  const candidates = [
+    { value: "Alpha", user: "harry", device: "harry-aaaaaaaa", writtenAt: 10 },
+    { value: "Beta", user: "sam", device: "sam-bbbbbbbb", writtenAt: 20 },
+  ];
+  const list = [{ table: "notes", id: "n1", field: "room", value: "Beta", candidates }];
+  const data = { conflicts: { subscribe: () => () => undefined, getSnapshot: () => list }, run: () => ({ ok: true }) } as unknown as Data;
+  render(
+    <ShellProvider strings={sentinel(defaultStrings)}>
+      <DataProvider data={data}>
+        <ConflictPrompt />
+      </DataProvider>
+    </ShellProvider>,
+  );
+  const shown = [...DATA, "notes", "n1", "room", "Alpha", "Beta", "harry", clockAndDate(10), clockAndDate(20)];
+  expect(strayWords(wording(), shown), "closed").toEqual([]);
+  fireEvent.click(screen.getByRole("button"));
+  expect(screen.getByRole("group")).toBeTruthy();
+  expect(strayWords(wording(), shown), "open").toEqual([]);
 });
 
 test("the sentinel check catches hard-coded wording", () => {

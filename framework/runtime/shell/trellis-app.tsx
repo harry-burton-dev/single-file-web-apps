@@ -8,6 +8,7 @@ import { DataProvider } from "../../react/hooks";
 import type { AppDefinition } from "../definition";
 import type { HostStart } from "../host/host";
 import { appNames } from "../names";
+import { ConflictPrompt } from "./conflict-prompt";
 import { useShell } from "./context";
 import { AlreadyOpen, Failed, FolderStep, folderEvent, InviteForm, Message, PassportStep, UnlockStep, describeError, type Flow } from "./first-run";
 import { HealthIndicator } from "./health-indicator";
@@ -154,10 +155,11 @@ function Running({ state, flow, children }: { state: RunningState; flow: Flow; c
   };
 
   return (
-    <>
+    <DataProvider data={session.data}>
       <HealthIndicator />
+      <ConflictPrompt />
       {state.reconnect !== "none" && <ReconnectBanner state={state} flow={flow} />}
-      <DataProvider data={session.data}>{children}</DataProvider>
+      {children}
       {inviting ? (
         <InviteForm db={db} root={root} flow={flow} onDone={replaced} onCancel={() => setInviting(false)} />
       ) : (
@@ -166,7 +168,7 @@ function Running({ state, flow, children }: { state: RunningState; flow: Flow; c
         </Button>
       )}
       <p className="text-xs text-muted-foreground">{strings.signedIn(session.user.name, session.deviceId, root.name)}</p>
-    </>
+    </DataProvider>
   );
 }
 
