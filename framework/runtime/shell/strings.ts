@@ -89,7 +89,13 @@ export interface ShellStrings {
   /** A release was refused; the reason is the loader's own message. */
   updateRefused: (reason: string) => string;
 
-  // The conflict prompt (OUT-38) adds its entries here.
+  /** The conflict prompt: the count in the health area, and the list it opens. */
+  needsDecision: (count: number) => string;
+  decisionsTitle: string;
+  /** One conflict, by the table and field names in the app definition. */
+  conflictAbout: (table: string, id: string, field: string) => string;
+  keep: (value: string) => string;
+  writtenBy: (user: string, time: string) => string;
 }
 
 export const defaultStrings: ShellStrings = {
@@ -171,6 +177,11 @@ export const defaultStrings: ShellStrings = {
   updateReady: (version) => `Version ${version} is ready.`,
   loadUpdate: "Load it",
   updateRefused: (reason) => `A new version was not installed. ${reason}`,
+  needsDecision: (count) => (count === 1 ? "1 needs a decision" : `${count} need a decision`),
+  decisionsTitle: "Needs a decision",
+  conflictAbout: (table, id, field) => `${field} of ${table} ${id}`,
+  keep: (value) => `Keep "${value}"`,
+  writtenBy: (user, time) => `${user}, ${time}`,
 };
 
 /** What an app passes to reword the shell: any entries, and any part of a health state's wording. */
