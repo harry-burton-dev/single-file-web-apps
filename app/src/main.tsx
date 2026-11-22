@@ -1,11 +1,11 @@
 import { mount, TrellisApp } from "@trellis/framework";
 import config from "../app.config";
 import css from "./index.css?inline";
-import { NoteScreen } from "./note-screen";
+import { ItemsScreen } from "./items-screen";
 
 export const start = mount(
   <TrellisApp config={config}>
-    <NoteScreen />
+    <ItemsScreen />
   </TrellisApp>,
   css,
 );

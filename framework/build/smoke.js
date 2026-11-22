@@ -468,7 +468,7 @@ async function passportRun(browser) {
   await page.click("#open-invite");
   check("enrol: the invite opens and the passport is offered for saving", await shows("#save-passport"), await message());
   await page.click("#save-passport");
-  check("enrol: the app starts with the passport's keys", await shows("#note"), await message());
+  check("enrol: the app starts with the passport's keys", await shows("#items"), await message());
   check("enrol: the passport is saved on the user's side, not in the folder", disk.read("local/sam.passport.json") !== null && disk.read("folder/sam.passport.json") === null);
 
   await page.reload();
@@ -476,7 +476,7 @@ async function passportRun(browser) {
   await unlockWith("not the right passphrase");
   check("a wrong passphrase is refused with its message", (await message()) === "That passphrase does not open this file.", await message());
   await unlockWith(OWN_PASS);
-  check("unlock: the app starts again from the passport", await shows("#note"), await message());
+  check("unlock: the app starts again from the passport", await shows("#items"), await message());
 
   const stored = await page.evaluate(scanIndexedDb);
   check("IndexedDB holds no CryptoKey", stored.cryptoKeys === 0, JSON.stringify(stored));

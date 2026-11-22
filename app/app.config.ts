@@ -4,9 +4,16 @@ const config = {
   id: "trellis-example",
   name: "Trellis Example",
   tables: {
-    // One of each field kind (spec S2): last write wins, ask on conflict, merged text.
-    // Names framework code never quotes, so the G4 test can tell them apart.
-    memos: { version: 1, fields: { subject: { kind: "latest", type: "string" }, venue: { kind: "ask", type: "string" }, details: "text" } },
+    // One of each field kind (spec S2): last write wins, merged text, ask on conflict.
+    items: {
+      version: 1,
+      fields: {
+        title: { kind: "latest", type: "string" },
+        done: { kind: "latest", type: "boolean" },
+        notes: "text",
+        owner: { kind: "ask", type: "string" },
+      },
+    },
   },
 } satisfies AppDefinition;
 
