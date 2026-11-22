@@ -2,19 +2,22 @@
 // the bootstrap and the app bundle with a throwaway signing key, puts the
 // signed release into a stand-in shared folder (stand-in-folder.js), and opens
 // the bootstrap page from disk (file://) in two browser contexts. Each context
-// has its own IndexedDB, so the two pages are two devices with two user names.
+// has its own IndexedDB, so the two pages are two devices with two users. The
+// folder holds a workspace.json made here; each user has a passport for it,
+// sealed here as enrolling would seal it, and unlocks with its passphrase.
 //
-//   1. both connect to the folder and start the app
+//   1. both connect to the folder, open their passports and start the app
 //   2. A types in the shared note and saves; B reads the folder and shows it
 //   3. the same from B to A
 //   4. the folder is partitioned, both type and save, neither sees the other;
-//      the partition heals and both end with the same text
+//      the partition heals and both end with the same text, which keeps both
+//      edits (the note is a merged-text field, spec S2)
 //
 // Saving and reading are driven by the diagnostics view's "Save now" and "Read
 // folder now" (opened from the health menu), not by waiting for timers.
 //
-// NOT covered: the real folder picker (headless Chrome cannot drive it, so it
-// is replaced by one returning the stand-in) and a real synced folder (the
+// NOT covered: the real folder and file pickers (headless Chrome cannot drive
+// them, so they are replaced by ones returning the stand-in and the passport) and a real synced folder (the
 // stand-in is a local directory; a sync client's delays, conflict copies and
 // placeholders are not reproduced). Reading a real folder handle and keeping
 // it in IndexedDB are also not covered. Hashing, signature checks, the
@@ -27,6 +30,9 @@ import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
+import { newKeyring } from "../runtime/identity/admin.js";
+import { sealKeyFile } from "../runtime/identity/keyfile.js";
+import { workspaceFileFor } from "../runtime/identity/workspace.js";
 import { appNames } from "../runtime/names.ts";
 import definition from "./app-definition.js";
 import { createStandInFolder } from "./stand-in-folder.js";
@@ -41,6 +47,8 @@ const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8
 const names = appNames(definition);
 const bundleName = names.bundleFile(version);
 const SYNC_TIMEOUT_MS = 15000;
+const SLOW = { timeout: 30000 }; // unlocking a passport is 600,000 rounds of PBKDF2
+const random = { bytes: (n) => webcrypto.getRandomValues(new Uint8Array(n)) };
 
 /** The same release folder the smoke test lays out: bootstrap page, bundle, signed manifest. */
 async function buildRelease() {
@@ -64,20 +72,44 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "ok  " : "FAIL"} ${name}${ok || !detail ? "" : `: ${detail}`}`);
 };
 
-/** One user: a browser context of its own, connected through the bootstrap and the app's setup screen. */
+/**
+ * Runs in the page before its own scripts: the open picker returns this
+ * user's passport. Marked standIn, so the page's attempt to remember the
+ * handle stores nothing, as for the folder.
+ */
+function passportPicker({ name, text }) {
+  const handle = { kind: "file", name, standIn: true, queryPermission: async () => "granted", requestPermission: async () => "granted", getFile: async () => new File([text], name) };
+  window.showOpenFilePicker = async () => [handle];
+}
+
+/** One user: a browser context of its own, connected through the bootstrap and unlocked from its passport. */
 async function openUser(browser, folder, label, user) {
   const context = await browser.newContext();
   await folder.attach(context, label);
+  await context.addInitScript(passportPicker, { name: `${user.id}.passport.json`, text: user.passportText });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(`${label}: ${err}`));
   await page.goto(pathToFileURL(join(RELEASE, names.bootstrapFile)).href);
   await page.click("#boot-connect");
   await page.waitForSelector("#boot", { state: "detached", timeout: 10000 });
-  await page.fill("#user", user);
   await page.getByRole("button", { name: "Choose the shared folder" }).click();
-  await page.waitForSelector("#note", { timeout: 10000 });
+  await page.click("#have-passport");
+  await page.fill("#passphrase", user.passphrase);
+  await page.click("#unlock");
+  await page.waitForSelector("#note", SLOW);
   return { label, page, errors };
+}
+
+/** A workspace in the stand-in folder and a passport for each user, as the admin page and enrolling would make them. */
+async function makeWorkspace(folder, people) {
+  const keyring = newKeyring({ random });
+  writeFileSync(join(folder.dir, "workspace.json"), await workspaceFileFor(keyring, { random }));
+  return Promise.all(people.map(async ({ id, name }) => {
+    const passphrase = `${id}'s own passport phrase`;
+    const passportText = await sealKeyFile({ kind: "passport", payload: { ...keyring, user: { id, name } }, passphrase, random });
+    return { id, passphrase, passportText };
+  }));
 }
 
 const note = (u) => u.page.inputValue("#note");
@@ -118,10 +150,11 @@ async function settle(a, b) {
 await buildRelease();
 const folder = await createStandInFolder();
 cpSync(join(RELEASE, "app"), join(folder.dir, "app"), { recursive: true });
+const [alice, bob] = await makeWorkspace(folder, [{ id: "alice", name: "Alice" }, { id: "bob", name: "Bob" }]);
 const browser = await chromium.launch();
 try {
-  const A = await openUser(browser, folder, "A", "alice");
-  const B = await openUser(browser, folder, "B", "bob");
+  const A = await openUser(browser, folder, "A", alice);
+  const B = await openUser(browser, folder, "B", bob);
   check("both users connect to the folder and start the app", true);
 
   await A.page.fill("#note", "Hello from alice");
@@ -144,7 +177,8 @@ try {
   await folder.partition(false);
   const agreed = await settle(A, B);
   const [a, b] = [await note(A), await note(B)];
-  check("after healing both end with the same text", agreed && ["alice while apart", "bob while apart"].includes(a), `A "${a}", B "${b}"`);
+  const merged = ["alice while apartbob while apart", "bob while apartalice while apart"].includes(a);
+  check("after healing both end with the same text, keeping both edits", agreed && merged, `A "${a}", B "${b}"`);
 
   const errors = [...A.errors, ...B.errors];
   check("no page errors", errors.length === 0, errors.join(" | "));
