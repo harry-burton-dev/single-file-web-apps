@@ -8,7 +8,7 @@ You only edit `app/`. Everything under `framework/`, `masters/` and `.github/` b
 
 ## 1. Create a project
 
-If you were given a project that already exists, skip to the key step below.
+If you were given a project that already exists, its last commit is your starting point: skip to the key step below.
 
 From a clone of the framework repository:
 
@@ -64,7 +64,7 @@ Add your table next to it. Each field has a kind, which decides what happens whe
 | `text` | both edits are merged, character by character | notes, descriptions |
 | `ask` | both people are shown both values and one is kept | fields where losing an edit matters |
 
-`latest` and `ask` take a `type` of `"string"`, `"number"` or `"boolean"`, written `{ kind: "latest", type: "number" }`. A bare `"latest"` or `"ask"` is untyped. Every record also has an `id` (a string, made for you) and `deleted`; don't declare fields with those names, or a table called `users`, which the framework keeps for itself.
+`latest` and `ask` take a `type` of `"string"`, `"number"` or `"boolean"`, written `{ kind: "latest", type: "number" }`. A bare `"latest"` or `"ask"` is untyped: it accepts any value except `undefined`, and its row type is `unknown`, so prefer a typed field. Every record also has an `id` (a string, made for you) and `deleted`; don't declare fields with those names, or a table called `users`, which the framework keeps for itself.
 
 Table names are letters, digits and hyphens. Start each new table at `version: 1`; it needs no `migrations`. When you later change a table's fields, raise its version and add a step under `migrations` in the same file: `migrations: { items: { 1: (record) => ({ ...record, priority: 0 }) } }` takes `items` records from version 1 to 2.
 
@@ -146,7 +146,7 @@ npm run ci
 
 Its tests include one per table in `app/app.config.ts`: a record one user creates, with a value in every field, must reach a second user through a shared folder. A new table is covered as soon as you declare it, with no test to write.
 
-**The two-user test.** `npm run two-users` builds the app, opens it as two users on one folder in a headless browser, and checks that their edits to the example `items` screen meet. It runs in the project's GitHub workflow. It needs Playwright once: `npm install --no-save playwright && npx playwright install chromium`. It drives the example screen, so keep `items` and `ItemsScreen` while you rely on it. Your own tables are covered by the per-table test in `npm run ci`.
+**The two-user test.** `npm run two-users` builds the app, opens it as two users on one folder in a headless browser, and checks that their edits to the example `items` screen meet. It runs in the project's GitHub workflow. It needs Playwright once: `npm install --no-save playwright && npx playwright install chromium`. It drives the example screen, so keep `items` and `ItemsScreen` while you rely on it. Your own tables are covered by the per-table test in `npm run ci`. Your own screens are checked by the typecheck and the build, not by a browser test: try them with `npm run dev`.
 
 ## 4. Invite a user
 
@@ -176,7 +176,7 @@ Once per project, make the signing key pair:
 npm run keygen
 ```
 
-It prints two lines. In the project's GitHub repository, store the first value (after `TRELLIS_PUBLIC_KEY=`) as an Actions **variable** named `TRELLIS_PUBLIC_KEY`, and the second as an Actions **secret** named `TRELLIS_SIGNING_KEY`. Keep a backup of the second somewhere safe and never commit it: whoever holds it can ship code to everyone.
+It prints two lines and writes no file. In the project's GitHub repository, store the first value (after `TRELLIS_PUBLIC_KEY=`) as an Actions **variable** named `TRELLIS_PUBLIC_KEY`, and the second as an Actions **secret** named `TRELLIS_SIGNING_KEY`. Keep a backup of the second somewhere safe and never commit it: whoever holds it can ship code to everyone.
 
 Then push a version tag:
 
