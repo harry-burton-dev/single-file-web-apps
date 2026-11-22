@@ -1,6 +1,6 @@
 # ADR-0008: Query layer
 
-**Status:** Proposed
+**Status:** Accepted, reduced for v0.1.0 (built in TR2, 2026-11-21; see "As built")
 **Date:** 2026-11-21
 **Deciders:** Harry
 **Epic:** EA · EA Workbench
@@ -105,6 +105,17 @@ The target is tables of up to about 50,000 records. At that size, re-running a n
 
 The layer is plain code with no browser or UI-framework dependency, tested in Node. `subscribe` is the only binding point; whichever UI approach is chosen wraps it in a few lines. The UI approach is a separate decision.
 
+### As built (TR2, spec S2)
+
+v0.1.0 keeps the views and drops the rest of the declared-query machinery:
+
+- **Views (section 1)** exist per table (`framework/data/view.ts`), but each change burst rebuilds the whole table's rows in one pass over the keys, not one row. Unchanged rows keep their object identity, and the rows array is reused when nothing changed. Notifications are batched on a microtask; a command flushes the views it wrote before it returns.
+- **No indexes (section 2) and no named queries, `uses` or `defineQuery` (section 3).** Spec S2 chose plain functions over arrays for tables of thousands of records. `useRecords(table, { where, sort, includeDeleted })` filters and sorts in memory; `where` also takes a function. Deleted rows are left out unless asked for.
+- **Subscriptions (section 4)** are the hooks: `useRecords`, `useRecord(table, id)` and `useField(table, id, field)`, each on `useSyncExternalStore`, re-rendering only when their own result changes. There is no `queries.subscribe`.
+- **Conflicts (section 5)** are `useConflicts()`, one list across tables sorted by table, id and field, settled with `resolveConflict` or `useResolveConflict()`. Opening and settling one updates the engine's `askOpen` metric. There is no `ref` helper; a missing record reads as `undefined`.
+- **Reads in commands (section 6)** go through the same views, as a snapshot.
+- **Checked by tests, not the simulator:** a fast-check property that a view always equals a fresh read of its table, and two engines on one memory folder for sync and conflicts.
+
 ## Options Considered
 
 | Option | Complexity | Drawback |
@@ -141,9 +152,9 @@ After any sequence of commands and synced changes, every view, index and query r
 
 ## Action Items
 
-1. [ ] Build table views maintained from change events, with the equality property above.
-2. [ ] Add indexes declared in the table registry.
-3. [ ] Add row queries, named queries, and batched subscriptions.
-4. [ ] Add the development-time check for undeclared table reads.
-5. [ ] Replace the record layer's whole-table scans with view lookups.
+1. [x] Build table views maintained from change events, with the equality property above (TR2; whole-table rebuild per burst).
+2. [ ] Add indexes declared in the table registry. Not in v0.1.0.
+3. [x] Add row queries and batched subscriptions (TR2). Named queries are not in v0.1.0.
+4. [ ] Add the development-time check for undeclared table reads. Not needed while there are no named queries.
+5. [x] Replace the record layer's whole-table scans with view lookups (TR2: single-pass `list()`, and screens read views).
 6. [x] Decide the UI approach: React, see ADR-0009.

@@ -123,5 +123,5 @@ Feature screens do not implement their own conflict handling.
 
 1. [ ] Implement the record layer over the engine: tables, ids, deletion, field kinds.
 2. [ ] Implement `ask` slots with tests for two and three concurrent writers, and for concurrent resolutions.
-3. [ ] Build the generic conflict component and the open-conflicts list.
+3. [x] Build the generic conflict component and the open-conflicts list (TR4: the shell's conflict prompt, `framework/runtime/shell/conflict-prompt.tsx`; it shows user ids, not display names, and offers only the candidate values).
 4. [ ] Decide the field kinds for the first EA Workbench tables when those are designed.
