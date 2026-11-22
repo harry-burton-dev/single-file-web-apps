@@ -30,7 +30,9 @@ test("no table or field name from app.config.ts is quoted in framework source", 
   assert.ok(names.size > 0, "the app declares at least one table");
   const files = execFileSync("git", ["ls-files", "framework"], { cwd: repo, encoding: "utf8" })
     .split("\n")
-    .filter((f) => f && !/(^|\/)test\//.test(f));
+    // The engine's simulation harness drives synthetic tables of its own (notes,
+    // title, owner...) and never ships in a bundle, so like tests it is not scanned.
+    .filter((f) => f && !/(^|\/)test\//.test(f) && !f.startsWith("framework/engine/src/harness/"));
   const found = [];
   for (const file of files) {
     const text = readFileSync(repo + file, "utf8");

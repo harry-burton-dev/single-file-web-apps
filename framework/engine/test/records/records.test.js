@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fc from "fast-check";
 import { makeId, newId } from "../../src/records/index.js";
 import { createWorld, jsonOf, variants } from "./harness.js";
 
@@ -260,6 +261,96 @@ for (const variant of await variants()) {
       assert.throws(() => a.table.put("r", { deleted: true }), TypeError);
       assert.throws(() => a.table.put("r", { title: undefined }), TypeError);
       assert.throws(() => a.table.put("r\u001fx", { title: "x" }), TypeError);
+    });
+    it("batch is one local update", () => {
+      const w = world();
+      const a = w.add("harry-aaaaaaaa");
+      const b = w.add("sam-bbbbbbbb");
+      const result = a.table.batch(() => {
+        a.table.put("r1", { title: "One", room: "A", body: "hi" });
+        a.table.put("r2", { title: "Two" });
+        a.table.remove("r1");
+        a.table.restore("r1");
+        return "done";
+      });
+      assert.equal(result, "done", "batch returns what fn returns");
+      assert.equal(a.outbox.length, 1);
+      w.syncAll();
+      assert.deepEqual(b.table.list(), a.table.list());
+    });
+
+    it("batch checks the schema version once, before running fn", () => {
+      const w = world();
+      const newer = w.add("harry-aaaaaaaa", "harry", { ...SCHEMA, version: 2 });
+      const old = w.add("sam-bbbbbbbb");
+      newer.table.put("r", { title: "v2" });
+      w.syncAll();
+      let ran = false;
+      assert.throws(() => old.table.batch(() => { ran = true; }), { name: "SchemaTooNew" });
+      assert.equal(ran, false);
+    });
+
+    it("onChange fires for local and remote", () => {
+      const w = world();
+      const a = w.add("harry-aaaaaaaa");
+      const b = w.add("sam-bbbbbbbb");
+      let localCalls = 0;
+      let remoteCalls = 0;
+      const offA = a.table.onChange(() => localCalls++);
+      b.table.onChange(() => remoteCalls++);
+      a.table.batch(() => { a.table.put("r1", { title: "x" }); a.table.put("r2", { title: "y" }); });
+      assert.equal(localCalls, 1, "one call per batch");
+      assert.equal(remoteCalls, 0);
+      w.deliver(a, b);
+      assert.equal(remoteCalls, 1, "listener is called after a remote apply");
+      assert.equal(b.table.get("r2").fields.title, "y", "the change is readable when the listener runs");
+      offA();
+      a.table.put("r3", { title: "z" });
+      assert.equal(localCalls, 1, "unsubscribed listener is not called");
+    });
+
+    it("list equals per-record get for random data", () => {
+      const devices = ["harry-aaaaaaaa", "sam-bbbbbbbb", "kim-cccccccc"];
+      const ids = ["r1", "r2", "r3", "r4"];
+      const fieldValue = fc.oneof(
+        fc.record({ title: fc.string({ maxLength: 3 }) }),
+        fc.record({ room: fc.constantFrom("A", "B", "C") }),
+        fc.record({ time: fc.integer({ min: 0, max: 3 }) }),
+        fc.record({ body: fc.string({ maxLength: 4 }) }),
+        fc.record({ extra: fc.integer() }),
+      );
+      const op = fc.oneof(
+        fc.record({ t: fc.constant("put"), d: fc.nat(2), id: fc.constantFrom(...ids), f: fieldValue }),
+        fc.record({ t: fc.constant("remove"), d: fc.nat(2), id: fc.constantFrom(...ids) }),
+        fc.record({ t: fc.constant("restore"), d: fc.nat(2), id: fc.constantFrom(...ids) }),
+        fc.record({ t: fc.constant("sync"), d: fc.nat(2), to: fc.nat(2) }),
+      );
+      fc.assert(fc.property(fc.array(op, { maxLength: 40 }), (ops) => {
+        const w = world();
+        const rs = devices.map((d) => w.add(d));
+        for (const o of ops) {
+          w.time.t += 1;
+          const r = rs[o.d];
+          if (o.t === "put") r.table.put(o.id, o.f);
+          else if (o.t === "remove") r.table.remove(o.id);
+          else if (o.t === "restore") r.table.restore(o.id);
+          else if (o.d !== o.to) w.deliver(r, rs[o.to]);
+        }
+        for (const r of rs) {
+          const all = r.table.list({ includeDeleted: true });
+          const expected = ids.map((id) => r.table.get(id)).filter(Boolean);
+          assert.deepEqual(all, expected);
+          assert.deepEqual(r.table.list(), expected.filter((x) => !x.deleted));
+          // field() reads each field with a full key scan: the reference for the grouped read.
+          for (const rec of all) {
+            for (const [name, value] of Object.entries(rec.fields)) {
+              const f = r.table.field(rec.id, name);
+              assert.deepEqual(value, f.value);
+              assert.deepEqual(rec.conflicts[name] ?? null, f.conflict);
+            }
+          }
+        }
+      }), { numRuns: 200 });
     });
   });
 }

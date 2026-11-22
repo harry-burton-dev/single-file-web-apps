@@ -1,17 +1,5 @@
 // Types for the engine's public surface (spec 2.5 and 2.7). The engine itself
-// is still JavaScript (ADR-0009 section 4); these describe what the app uses.
-
-/** The part of a Yjs map the app uses until the record layer is typed. */
-export interface SharedMap {
-  get(key: string): unknown;
-  set(key: string, value: unknown): void;
-  observe(listener: () => void): void;
-  unobserve(listener: () => void): void;
-}
-
-export interface SharedDoc {
-  getMap(name: string): SharedMap;
-}
+// is still JavaScript (ADR-0009 section 4); these describe what the framework uses.
 
 export type HealthState = "saved" | "saving" | "retrying" | "folder-disconnected" | "not-reaching-peers" | "offline";
 
@@ -76,7 +64,8 @@ export interface Metrics {
 }
 
 export interface Engine {
-  table(name: string): SharedDoc;
+  /** The table's Yjs document. Only the data runtime (framework/data) reads it. */
+  table(name: string): unknown;
   tick(): Promise<void>;
   flush(): Promise<void>;
   scan(): Promise<void>;
@@ -85,5 +74,7 @@ export interface Engine {
   metrics(): Metrics;
   traces(filter?: { kind?: TraceKind; outcome?: TraceOutcome; limit?: number }): Trace[];
   setOffline(offline: boolean): void;
-  on(event: "trace" | "health" | "received" | "saved" | "error", listener: (payload: unknown) => void): () => void;
+  /** Counts ask conflicts opening and closing in metrics().conflicts.askOpen. */
+  noteConflict(event: { type: "ask-opened" | "ask-resolved"; table: string; id: string; field: string }): void;
+  on(event: "trace" | "health" | "accepted" | "received" | "saved" | "error", listener: (payload: unknown) => void): () => void;
 }

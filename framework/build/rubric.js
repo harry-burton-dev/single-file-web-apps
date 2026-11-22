@@ -22,9 +22,10 @@ export const gates = [
   { id: "G2", requirement: "No leftover names in a created project outside the allowed list", command: "node --test framework/test/create-names.test.js", present: has("framework/test/create-names.test.js") },
   { id: "G3", requirement: "One definition file: names follow app/app.config.ts", command: "node --test framework/runtime/test/naming.test.js framework/runtime/test/build-names.test.js" },
   { id: "G4", requirement: "No business logic in framework folders", command: "node --test framework/runtime/test/empty-app.test.js" },
-  { id: "G5", requirement: "Screens import only the framework's public entry", command: "node --test framework/test/boundary.test.js", present: has("framework/test/boundary.test.js") },
-  { id: "G6", requirement: "Real keys: invited users read each other's data, an outsider cannot", command: "node --test framework/test/keys.test.js", present: has("framework/test/keys.test.js") },
-  { id: "G7", requirement: "Two users on one folder converge, from built files on disk", command: "node framework/build/two-user.js", present: has("framework/build/two-user.js") },
+  { id: "G5", requirement: "Screens import only the framework's public entry", command: "node --test framework/test/boundary.test.js" },
+  // The fixed-key check reads dist/, so it needs a build first (`npm run ci` does one).
+  { id: "G6", requirement: "Real keys: invited users read each other's data, an outsider cannot; no fixed key in the build", command: "node --test framework/runtime/test/identity/g6.test.js && npm run check:no-test-key" },
+  { id: "G7", requirement: "Two users on one folder converge, from built files on disk", command: "npm run two-users" },
   {
     id: "G8",
     requirement: "Signed update end to end: N+1 offered and loaded, forged N+2 refused",
@@ -32,9 +33,11 @@ export const gates = [
     // The smoke test exists but does not yet place a new release mid-session (OUT-28).
     present: () => readFileSync(join(ROOT, "framework/build/smoke.js"), "utf8").includes("checkForUpdate"),
   },
-  { id: "G9", requirement: "Survives loss: backup and restore; newer schema refused", command: "node --test framework/test/durability.test.js", present: has("framework/test/durability.test.js") },
+  // Step 6 of the smoke test is the from-disk backup and restore.
+  { id: "G9", requirement: "Survives loss: backup and restore; newer schema refused", command: "node --test framework/runtime/test/backup/backup.test.js framework/data/test/migrations.test.js && npm run smoke" },
   { id: "G10", requirement: "Engine faults closed: all probes pass", command: "npm run probes" },
-  { id: "G11", requirement: "Size budgets: bootstrap under 50 KB, app bundle under 500 KB", command: "node framework/build/size-budget.js", present: has("framework/build/size-budget.js") },
+  // `npm run size` reads dist/, so it needs a build first (`npm run ci` does one).
+  { id: "G11", requirement: "Size budgets: bootstrap under 50 KB, app bundle under 500 KB", command: "npm run size && node --test framework/test/size-budget.test.js" },
 ];
 
 const TAIL_LINES = 30;

@@ -1,7 +1,27 @@
 import type { AppDefinition } from "@trellis/framework";
 
-export default {
+const config = {
   id: "trellis-example",
   name: "Trellis Example",
-  tables: { scratch: { version: 1, fields: {} } },
+  tables: {
+    // One of each field kind (spec S2): last write wins, merged text, ask on conflict.
+    items: {
+      version: 1,
+      fields: {
+        title: { kind: "latest", type: "string" },
+        done: { kind: "latest", type: "boolean" },
+        notes: "text",
+        owner: { kind: "ask", type: "string" },
+      },
+    },
+  },
 } satisfies AppDefinition;
+
+export default config;
+
+// Row types are inferred from this definition (spec S2).
+declare module "@trellis/framework" {
+  interface Register {
+    config: typeof config;
+  }
+}

@@ -47,6 +47,7 @@ Everything is bundled; nothing is fetched from the network at run time. No WebAs
   data/  status/  backups/
 ```
 
+- **`backups/`** holds one folder per backup, `backups/<UTC stamp>/<table>.ywb`, written only by the admin page's "Back up now" (ADR-0001 section 8). "Download backup" gives the same folder as one zip, `backup-<stamp>.zip`, to keep away from the shared folder; the admin page restores it into an empty folder together with the key backup.
 - **Bundles are write-once**, with the version in the file name. They are never rewritten.
 - **`manifest.json` is the only file that changes.** It is one file holding a body and a signature over that body, so the two can never be out of step.
 
@@ -81,7 +82,7 @@ The loader keeps the two most recent verified bundles. Opening the page with `#p
 
 ### 6. Loader contract
 
-As built (contract 1, `framework/runtime/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `TRELLIS_PUBLIC_KEY` or `app/signing-public-key.json`; the build fails without one.
+As built (contract 1, `framework/runtime/loader/contract.ts`): the bundle exports `start(services)`. The services are the bundle's version, the bootstrap version, the `#safe` flag, the element to render into, and `checkForUpdate(folder)`. The app calls `checkForUpdate` once its folder is connected; the bootstrap then re-checks every 15 minutes and shows a note when a version is ready or was refused. An optional `onUpdate(listener)` service (added 2026-11-21, OUT-37, approved by Harry) lets the running app hear each check's result and returns an unsubscribe function. While anything is subscribed the bootstrap draws no note, so the shell's update notice shows it in the app's design and wording; a subscriber that arrives after a check hears its result and the bootstrap's note is taken down. With no subscriber the bootstrap draws its own note as before, so an app that fails before it mounts is still told. The contract number and `BOOTSTRAP_VERSION` stay at 1 because no bootstrap had been handed out. The manifest file is `{ "body": "<JSON text>", "signature": "<base64>" }`, signed over the exact body text. The public key reaches the bootstrap at build time from `TRELLIS_PUBLIC_KEY` or `app/signing-public-key.json`; the build fails without one.
 
 The bundle exports one entry function, called with the loader's services (folder connection, cache, update check, bootstrap version). The contract has a version number; the manifest states the minimum bootstrap each bundle needs, and the loader refuses a bundle it is too old for with a clear message.
 
@@ -115,7 +116,7 @@ Until the admin app exists, a release is produced by GitHub Actions, not by the 
 - **Release** (`.github/workflows/release.yml`): pushing a tag such as `v1.2.0` runs the tests and the from-disk smoke test, builds the bootstrap and the bundle at that version, signs the manifest, and publishes a GitHub Release holding `<id>-1.2.0.zip`. The zip is the `<name>/` folder of section 2, ready to copy into the shared folder. `framework/build/release.js` writes the folder, zip name and release title to the workflow's outputs, so the workflow holds no app name.
 - **Keys:** `npm run keygen` (`framework/build/keygen.js`) prints a key pair. The public key is the repository variable `TRELLIS_PUBLIC_KEY`; the private key is the repository secret `TRELLIS_SIGNING_KEY`. This departs from section 4: GitHub, not only the admin, holds the signing key.
 - **Serial:** the build time in seconds.
-- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag. The adversarial probes (`npm run probes`) are not part of CI; three of them still fail.
+- **Limits:** each manifest lists only the version just built, so a rollback means releasing the older code again under a new tag.
 
 ## Options Considered
 

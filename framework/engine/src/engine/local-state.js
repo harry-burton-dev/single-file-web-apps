@@ -82,16 +82,20 @@ async function foldLog(ctx, T) {
   for (const key of stale) await store.delete(key);
 }
 
+/** Persist a local update as pending. Resolves true only if the store took it (the edit is then accepted). */
 export async function addPending(ctx, T, entry) {
   T.pendSeq += 1;
   const key = keyOf.pend(T.name, T.pendSeq);
   entry.key = key;
+  let stored = true;
   try {
     await ctx.cfg.store.set(key, entry.bytes);
   } catch (err) {
+    stored = false;
     ctx.recordError("store", err, { table: T.name });
   }
   entry.persisted = true;
+  return stored;
 }
 
 export async function dropPending(ctx, T, entries) {

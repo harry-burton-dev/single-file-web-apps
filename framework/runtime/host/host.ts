@@ -6,6 +6,8 @@ import { createEngine } from "../../engine/src/engine/engine.js";
 import { createYjsAdapter } from "../../engine/src/adapters/yjs.js";
 import type { AppDefinition } from "../definition";
 import { appNames } from "../names.ts";
+import { USERS_TABLE } from "../identity/admin.js";
+import { restoreBackup } from "../backup/backup.js";
 import type { Engine } from "./engine-types";
 import type { KeyValueDb } from "./idb";
 
@@ -21,16 +23,21 @@ export interface HostConfig {
   user: string;
   key: CryptoKey;
   keyId: number;
+  /** Extra keys to read with, by key id, so data from before a rotation stays readable. */
+  keys?: Map<number, CryptoKey>;
   app: AppDefinition;
 }
 
 export type HostStart =
-  | { ok: true; engine: Engine; deviceId: string; stop: () => Promise<void> }
+  /** clock and random are the ones the engine was given, for the data runtime (createData). */
+  | { ok: true; engine: Engine; deviceId: string; clock: { now(): number }; random: { bytes(n: number): Uint8Array }; stop: () => Promise<void> }
   | { ok: false; reason: "already-open" };
 
 function randomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));
 }
+
+const clock = { now: () => Date.now() };
 
 const random = {
   bytes: randomBytes,
@@ -73,24 +80,37 @@ function holdDeviceLock(lockName: string): Promise<{ held: boolean; release: () 
   });
 }
 
-export async function startHost(config: HostConfig): Promise<HostStart> {
-  const deviceId = await deviceIdFor(config.db, config.user);
-  const lock = await holdDeviceLock(appNames(config.app).deviceLock(deviceId));
-  if (!lock.held) return { ok: false, reason: "already-open" };
+/** The engine's tables and adapters for this app, as writeBackup takes them. */
+export function engineTables(app: AppDefinition) {
+  return {
+    adapters: { yjs: createYjsAdapter({ random }) },
+    // The app's tables, and the framework's users table (decision D17).
+    tables: Object.fromEntries([...Object.keys(app.tables), USERS_TABLE].map((table) => [table, "yjs"])) as Record<string, string>,
+  };
+}
 
-  const engine = (await createEngine({
-    root: config.root,
-    clock: { now: () => Date.now() },
+/** Everything createEngine takes for this device, apart from the folder. */
+function engineConfig(config: HostConfig, deviceId: string) {
+  return {
+    clock,
     timer: { now: () => performance.now() },
     random,
     store: engineStore(config.db),
     key: config.key,
     keyId: config.keyId,
+    keys: config.keys,
     user: config.user,
     deviceId,
-    adapters: { yjs: createYjsAdapter({ random }) },
-    tables: Object.fromEntries(Object.keys(config.app.tables).map((table) => [table, "yjs"])),
-  })) as unknown as Engine;
+    ...engineTables(config.app),
+  };
+}
+
+export async function startHost(config: HostConfig): Promise<HostStart> {
+  const deviceId = await deviceIdFor(config.db, config.user);
+  const lock = await holdDeviceLock(appNames(config.app).deviceLock(deviceId));
+  if (!lock.held) return { ok: false, reason: "already-open" };
+
+  const engine = (await createEngine({ root: config.root, ...engineConfig(config, deviceId) })) as unknown as Engine;
   engine.setOffline(!navigator.onLine);
 
   let ticking = false;
@@ -125,5 +145,22 @@ export async function startHost(config: HostConfig): Promise<HostStart> {
     lock.release();
   };
 
-  return { ok: true, engine, deviceId, stop };
+  return { ok: true, engine, deviceId, clock, random, stop };
+}
+
+/**
+ * Restores a backup file into config.root as this browser's device (OUT-48):
+ * the same store, device id and lock as startHost, so a startHost there
+ * afterwards carries on from the restored data. Throws restoreBackup's BackupError.
+ */
+export async function restoreHost(config: HostConfig, file: Uint8Array): Promise<{ ok: true; tables: string[] } | { ok: false; reason: "already-open" }> {
+  const deviceId = await deviceIdFor(config.db, config.user);
+  const lock = await holdDeviceLock(appNames(config.app).deviceLock(deviceId));
+  if (!lock.held) return { ok: false, reason: "already-open" };
+  try {
+    const { tables } = await restoreBackup({ root: config.root, file, engineConfig: engineConfig(config, deviceId) });
+    return { ok: true, tables };
+  } finally {
+    lock.release();
+  }
 }

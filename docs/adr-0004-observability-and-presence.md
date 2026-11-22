@@ -95,7 +95,7 @@ The activity log, traces and metrics are local to each device and disposable. Th
 Sections 3 to 5 are implemented in the engine and checked by simulation (properties P13 to P15 in the test spec). Points where the build is more specific than the text above:
 
 - **Detail level.** Tracing has three levels: `full` (every step), `summary` (counts only) and `off`. Metrics work at every level. The level never changes what the engine does.
-- **History size.** The newest 500 traces are held in memory and about 200 survive a reload. A crash can lose the last 10. A stored trace keeps its first 100 steps.
+- **History size.** The newest 500 traces are held in memory and about 200 non-routine traces survive a reload. Routine traces (a scheduled scan or status write that went fine, with no apply, delete or error) stay in memory only, so an idle device writes nothing to its store. A crash can lose the last 10. A stored trace keeps its first 100 steps.
 - **Acknowledgement** is a colleague's status file showing they have read this device's latest chunk, whether or not that chunk is finished.
 - **"Not reaching colleagues"** needs at least one colleague active in the last 15 minutes, and every such colleague to have gone more than 10 minutes without acknowledging. With nobody active it is never shown.
 - **"Folder disconnected"** is shown when the folder cannot be listed or a permission error occurs, and clears on the next successful operation of the same kind.
@@ -104,6 +104,17 @@ Sections 3 to 5 are implemented in the engine and checked by simulation (propert
 - **Cost.** In simulation, full tracing plus its checks used about 28% more processor time than tracing off. The cost of tracing alone was not separated out.
 
 **Not yet exercised:** any of this against a real OneDrive folder; "folder disconnected" and "offline" outside unit tests.
+
+### 9. As built in the app shell (TR4, 2026-11-22)
+
+Sections 5 and 6 are now pieces of the shell (`framework/runtime/shell/`), shown on every running screen of every app. All wording is in `strings.ts`, so an app rewords it through `<TrellisApp strings>`.
+
+- **Health indicator** (`health-indicator.tsx`). A badge for each of the six states in section 5, with one plain sentence each, for example "Folder disconnected. Your changes are safe on this computer and will be shared once the folder is reconnected." Beside it: changes waiting, last save, last folder read and colleagues heard from. Before an engine exists it shows "Starting". Apps read the same state with `useHealth()`. Tests: `health-indicator.test.tsx`.
+- **Diagnostics menu** (`diagnostics.tsx`). The sync inspector of section 6 is no longer always on the page. Pressing the indicator opens a menu with one item, Diagnostics, which opens the view as a dialog: metrics, the trace timeline, each trace's file steps, and the save now and read the folder now actions. Escape closes it. The error screen opens the same view. The timeline filters, colleague detail, file lists, detail level and trace export of section 6 are not built yet. Tests: `diagnostics.test.tsx`, `health-indicator.test.tsx` ("health menu").
+- **Reconnect banner** (`trellis-app.tsx`). When health is "folder disconnected" and the stored folder handle's permission is no longer granted, a banner over the app's screens says changes are safe on this computer and offers Reconnect, which asks for permission from the click. The screens stay usable. The banner clears once permission is granted and the next folder operation succeeds; a refusal stays with its message. Tests: `trellis-app.test.tsx` ("folder permission lost mid-session").
+- **Two users on one folder** are checked from built files opened from disk by `npm run two-users` in CI (gate G7): edits reach the other page through the diagnostics actions, and a concurrent `ask` edit raises the conflict prompt (ADR-0002) on both.
+
+**Not yet exercised:** the banner after a real permission lapse in Chrome; the indicator against a real OneDrive folder.
 
 ## Options Considered (presence)
 
@@ -124,6 +135,6 @@ A live link can be added later as an optional extra without changing anything el
 ## Action Items
 
 1. [x] Add tracing, metrics and the derived connection state to the engine, with tests.
-1. [ ] Build the connection indicator and sync inspector into the engine test page.
+1. [x] Build the connection indicator and sync inspector into the engine test page (TR4: into the app shell; see section 9).
 2. [ ] Confirm how OneDrive copes with a file rewritten once a minute.
 3. [ ] Test the digest check by deliberately corrupting a local table.

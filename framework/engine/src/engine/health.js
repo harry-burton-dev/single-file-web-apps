@@ -16,8 +16,10 @@
 //                        has not been written again yet (own-repair.js)
 //   not-reaching-peers   nothing pending, saves succeed, at least one other
 //                        device was active within health.peerActiveWindowMs
-//                        (its status file's lastActiveAt, compared with our
-//                        clock), and every such active peer has failed to
+//                        (judged by when this device last saw its status file
+//                        change, on this device's clock, as deletion does; a
+//                        peer never observed counts as active), and every
+//                        such active peer has failed to
 //                        acknowledge our latest chunk for longer than
 //                        health.ackTimeoutMs since we first wrote it. A peer
 //                        acknowledges a chunk when its status file lists our
@@ -58,11 +60,12 @@ export function peerView(ctx) {
   const out = {};
   for (const [device, { meta }] of rt.statuses) {
     const { acked, waitingSince } = ackState(ctx, meta);
+    const seen = rt.statusSeen[device]; // when this device saw the status file change, on our clock
     out[device] = {
       user: meta.user,
-      lastHeardAt: meta.lastActiveAt ?? null,
+      lastHeardAt: seen?.at ?? null,
       lastAckedAt: rt.acks.get(device)?.lastAckedAt ?? null,
-      active: meta.lastActiveAt != null && now - meta.lastActiveAt <= cfg.options.health.peerActiveWindowMs,
+      active: !seen || now - Math.min(seen.at, now) <= cfg.options.health.peerActiveWindowMs,
       ackedLatest: acked,
       waitingSince,
     };

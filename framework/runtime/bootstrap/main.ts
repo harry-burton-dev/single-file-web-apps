@@ -5,6 +5,7 @@
 import { loadFolder, pickFolder, regrant, type FolderState } from "../host/folder";
 import { openDb, type KeyValueDb } from "../host/idb";
 import { cachedBundle, checkForUpdate } from "../loader/loader.js";
+import { updateReporter } from "../loader/updates.js";
 import { importPublicKey } from "../loader/manifest.js";
 import { BOOTSTRAP_VERSION, type LoaderServices, type UpdateResult } from "../loader/contract";
 import { appNames } from "../names";
@@ -43,12 +44,19 @@ async function boot(): Promise<void> {
   const check = (root: FileSystemDirectoryHandle): Promise<UpdateResult> =>
     checkForUpdate({ root, cache: db, publicKey, subtle: crypto.subtle, bootstrapVersion: BOOTSTRAP_VERSION }) as Promise<UpdateResult>;
 
+  const reporter = updateReporter({
+    draw: (result: UpdateResult) => {
+      if (result.status === "updated") notice(`Version ${result.version} is ready.`, { label: "Load it", run: () => location.reload() });
+      if (result.status === "rejected") notice(result.message);
+    },
+    clear: () => document.getElementById("boot-notice")?.remove(),
+  });
+
   let watching = false;
   /** Check now and report; after the first call, again every RECHECK_MS for as long as the page is open. */
   async function checkAndReport(root: FileSystemDirectoryHandle): Promise<UpdateResult> {
     const result = await check(root);
-    if (result.status === "updated") notice(`Version ${result.version} is ready.`, { label: "Load it", run: () => location.reload() });
-    if (result.status === "rejected") notice(result.message);
+    reporter.report(result);
     if (!watching) {
       watching = true;
       window.setInterval(() => void checkAndReport(root), RECHECK_MS);
@@ -60,7 +68,7 @@ async function boot(): Promise<void> {
     const url = URL.createObjectURL(new Blob([bundle.bytes as BlobPart], { type: "text/javascript" }));
     const module = (await import(/* @vite-ignore */ url)) as { start: (services: LoaderServices) => void | Promise<void> };
     app.replaceChildren();
-    await module.start({ contract: 1, bootstrapVersion: BOOTSTRAP_VERSION, version: bundle.version, safe, mount: app, checkForUpdate: checkAndReport });
+    await module.start({ contract: 1, bootstrapVersion: BOOTSTRAP_VERSION, version: bundle.version, safe, mount: app, checkForUpdate: checkAndReport, onUpdate: reporter.subscribe });
   }
 
   const cached = await cachedBundle(db, { previous });

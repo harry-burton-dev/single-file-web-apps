@@ -60,9 +60,11 @@ test("CI runs the one ci script, then the rubric as its own step", () => {
   const root = new URL("../../", import.meta.url);
   const scripts = JSON.parse(readFileSync(new URL("package.json", root), "utf8")).scripts;
   assert.ok(scripts.ci, "root package.json has no ci script");
-  const runs = [...readFileSync(new URL(".github/workflows/ci.yml", root), "utf8").matchAll(/^\s*run: (.+)$/gm)].map((m) => m[1]);
-  const ci = runs.indexOf("npm run ci");
-  assert.ok(ci >= 0, `ci.yml does not run npm run ci: ${runs.join(" / ")}`);
-  assert.ok(runs.indexOf("npm run rubric") > ci, "ci.yml does not run npm run rubric after npm run ci");
-  assert.ok(!runs.some((r) => /npm (test|ci$|run (typecheck|build))/.test(r)), `ci.yml runs checks outside the ci script: ${runs.join(" / ")}`);
+  // Every command line in the workflow, single-line `run:` or inside a `run: |` block.
+  const lines = readFileSync(new URL(".github/workflows/ci.yml", root), "utf8")
+    .split("\n").map((l) => l.trim().replace(/^run: /, "")).filter((l) => l.startsWith("npm "));
+  const ci = lines.indexOf("npm run ci");
+  assert.ok(ci >= 0, `ci.yml does not run npm run ci: ${lines.join(" / ")}`);
+  assert.ok(lines.indexOf("npm run rubric") > ci, "ci.yml does not run npm run rubric after npm run ci");
+  assert.ok(!lines.some((l) => /^npm (test|ci|run (typecheck|build|test))\b/.test(l)), `ci.yml runs checks outside the ci script: ${lines.join(" / ")}`);
 });
