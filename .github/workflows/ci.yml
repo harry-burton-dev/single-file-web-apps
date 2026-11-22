@@ -31,3 +31,21 @@ jobs:
       # Red until every gate's check has landed; see docs/framework/README.md section 3.
       - name: Rubric
         run: npm run rubric
+
+  # Gates G1 and G2 as a created project sees them: make demo-app in a
+  # temporary folder and run that project's own CI inside it.
+  template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Create demo-app
+        run: npm run create -- demo-app --dir "$RUNNER_TEMP"
+      - name: CI inside demo-app
+        working-directory: ${{ runner.temp }}/demo-app
+        run: |
+          export TRELLIS_PUBLIC_KEY="$(npm run --silent keygen | sed -n 's/^TRELLIS_PUBLIC_KEY=//p')"
+          npm run ci

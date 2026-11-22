@@ -11,7 +11,7 @@ import { clockTime } from "../format";
 import { emptyMetrics, fakeEngine } from "./helpers/fake-engine";
 import { HEALTH_STATES } from "../../../engine/src/engine/health.js";
 import type { HealthState, Trace } from "../../host/engine-types";
-import { TrellisApp } from "../trellis-app";
+import { TrellisApp } from "../app-shell";
 import { PassportError } from "../../identity/passport.js";
 import { DEVICE, FOLDER, fakeServices, folderHandle, PASSPORT_FILE, USER } from "./helpers/fake-services";
 import type { UpdateResult } from "../../loader/contract";

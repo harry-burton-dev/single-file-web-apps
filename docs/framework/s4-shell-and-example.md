@@ -41,9 +41,9 @@ Every acceptance point, with the test that checks it on `main`. All run in CI (`
 |---|---|
 | G7: two contexts, one stand-in folder, edits both ways converge; a concurrent `owner` edit raises the conflict prompt | `npm run two-users` (`framework/build/test/two-users.js`), from built files opened from disk. Also `conflict-prompt.test.tsx` ("two engines: a concurrent ask edit shows the prompt on both; resolving on one clears both") |
 | G11: sizes within budget, enforced by the build | `npm run size` at the end of `npm run build` (`framework/build/size-budget.js`): bootstrap 9,535 of 50,000 bytes, bundle 466,580 of 500,000. `framework/test/size-budget.test.js` proves it exits 1 over budget |
-| Component tests for each shell state | `framework/runtime/shell/test/trellis-app.test.tsx`: starting, invite, unlock, folder (none and needs permission), already open, running, failed. Transitions in `machine.test.ts` |
-| Including folder permission lost mid-session | `trellis-app.test.tsx`, "folder permission lost mid-session": banner with Reconnect, clears once granted and the next folder operation succeeds, refusal stays, no banner while permission holds |
-| Deleting the example table and screen leaves a project that builds and shows an empty shell | `empty-app-build.test.ts` (builds with `tables: {}` and no screens through the Vite factory and mounts the bundle) and "an empty shell" in `trellis-app.test.tsx` |
+| Component tests for each shell state | `framework/runtime/shell/test/app-shell.test.tsx`: starting, invite, unlock, folder (none and needs permission), already open, running, failed. Transitions in `machine.test.ts` |
+| Including folder permission lost mid-session | `app-shell.test.tsx`, "folder permission lost mid-session": banner with Reconnect, clears once granted and the next folder operation succeeds, refusal stays, no banner while permission holds |
+| Deleting the example table and screen leaves a project that builds and shows an empty shell | `empty-app-build.test.ts` (builds with `tables: {}` and no screens through the Vite factory and mounts the bundle) and "an empty shell" in `app-shell.test.tsx` |
 | Example under 150 lines | `framework/test/app-size.test.js`: 80 of 150 |
 | No shell text or colour hard-coded | `rules.test.tsx`: sentinel strings for every shell piece and first-run screen, and no colour except design tokens under `shell/` |
 

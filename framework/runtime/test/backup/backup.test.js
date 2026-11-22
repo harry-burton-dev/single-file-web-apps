@@ -168,7 +168,7 @@ test("the zip is store-only, holds the backup folder and passes unzip -t", async
     t.skip("unzip is not installed");
     return;
   }
-  const dir = mkdtempSync(join(tmpdir(), "trellis-backup-"));
+  const dir = mkdtempSync(join(tmpdir(), "backup-"));
   try {
     const path = join(dir, "backup.zip");
     writeFileSync(path, zip);

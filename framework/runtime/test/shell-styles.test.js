@@ -25,7 +25,7 @@ function read(dir) {
 test(`the shell-only class ${SHELL_ONLY_CLASS} is in the built bundle`, async (t) => {
   assert.ok(read(join(repo, "framework/runtime/shell")).includes(SHELL_ONLY_CLASS), "the shell uses the class");
   assert.ok(!read(join(repo, "app/src")).includes(SHELL_ONLY_CLASS), "the app does not");
-  const outDir = mkdtempSync(join(tmpdir(), "trellis-shell-styles-"));
+  const outDir = mkdtempSync(join(tmpdir(), "shell-styles-"));
   t.after(() => rmSync(outDir, { recursive: true, force: true }));
   await build({ ...appConfig({ definition, version: "0.0.0", mode: "app", outDir }), configFile: false, logLevel: "error" });
   const bundle = read(join(outDir, "app"));

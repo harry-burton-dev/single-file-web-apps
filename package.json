@@ -23,6 +23,7 @@
     "probes": "node --test \"framework/engine/test/breaker/*.probe.js\"",
     "test:shell": "vitest run --config framework/vitest.config.js",
     "ci": "npm ci --no-audit --no-fund && npm run typecheck && npm test && npm run build",
-    "rubric": "node framework/build/rubric.js"
+    "rubric": "node framework/build/rubric.js",
+    "create": "node framework/build/create.js"
   }
 }
