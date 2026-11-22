@@ -68,7 +68,7 @@ Takes about 20 minutes. Use a folder synced by OneDrive (or any synced folder bo
 4. In Chrome profile B, open the same `<id>.html`, accept invite B and choose the same folder.
 5. In A, add an item. Within a few minutes (or press Diagnostics, then "Read folder now" in B) it appears in B. Edit its title in B and check A.
 6. Concurrent edit: pause OneDrive sync, set a different owner on the same item in A and in B, then resume sync. After both have read the folder, both show "1 needs a decision". Pick one in A; B's count clears and both show that owner.
-7. Permission lapse: in B, open Chrome's site settings for the page and remove its file access, then add an item. The reconnect banner appears and the item stays on screen. Press Reconnect, allow access, and check A receives the item.
+7. Permission lapse: in B, remove the page's file access (the file-access icon in the address bar, or close every tab of the page and reopen it, which drops the grant), then add an item. If Chrome offers no way to remove it, note that and skip this step. The reconnect banner appears and the item stays on screen. Press Reconnect, allow access, and check A receives the item.
 8. Look in the folder for OneDrive conflict copies (files with a computer name in them) and note any in Diagnostics' file list.
 
 Record the result, and any conflict copies seen, on the TR4 Linear project.
