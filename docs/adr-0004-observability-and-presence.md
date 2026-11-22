@@ -105,6 +105,17 @@ Sections 3 to 5 are implemented in the engine and checked by simulation (propert
 
 **Not yet exercised:** any of this against a real OneDrive folder; "folder disconnected" and "offline" outside unit tests.
 
+### 9. As built in the app shell (TR4, 2026-11-22)
+
+Sections 5 and 6 are now pieces of the shell (`framework/runtime/shell/`), shown on every running screen of every app. All wording is in `strings.ts`, so an app rewords it through `<TrellisApp strings>`.
+
+- **Health indicator** (`health-indicator.tsx`). A badge for each of the six states in section 5, with one plain sentence each, for example "Folder disconnected. Your changes are safe on this computer and will be shared once the folder is reconnected." Beside it: changes waiting, last save, last folder read and colleagues heard from. Before an engine exists it shows "Starting". Apps read the same state with `useHealth()`. Tests: `health-indicator.test.tsx`.
+- **Diagnostics menu** (`diagnostics.tsx`). The sync inspector of section 6 is no longer always on the page. Pressing the indicator opens a menu with one item, Diagnostics, which opens the view as a dialog: metrics, the trace timeline, each trace's file steps, and the save now and read the folder now actions. Escape closes it. The error screen opens the same view. The timeline filters, colleague detail, file lists, detail level and trace export of section 6 are not built yet. Tests: `diagnostics.test.tsx`, `health-indicator.test.tsx` ("health menu").
+- **Reconnect banner** (`trellis-app.tsx`). When health is "folder disconnected" and the stored folder handle's permission is no longer granted, a banner over the app's screens says changes are safe on this computer and offers Reconnect, which asks for permission from the click. The screens stay usable. The banner clears once permission is granted and the next folder operation succeeds; a refusal stays with its message. Tests: `trellis-app.test.tsx` ("folder permission lost mid-session").
+- **Two users on one folder** are checked from built files opened from disk by `npm run two-users` in CI (gate G7): edits reach the other page through the diagnostics actions, and a concurrent `ask` edit raises the conflict prompt (ADR-0002) on both.
+
+**Not yet exercised:** the banner after a real permission lapse in Chrome; the indicator against a real OneDrive folder.
+
 ## Options Considered (presence)
 
 | Option | Liveness | Drawback |
@@ -124,6 +135,6 @@ A live link can be added later as an optional extra without changing anything el
 ## Action Items
 
 1. [x] Add tracing, metrics and the derived connection state to the engine, with tests.
-1. [ ] Build the connection indicator and sync inspector into the engine test page.
+1. [x] Build the connection indicator and sync inspector into the engine test page (TR4: into the app shell; see section 9).
 2. [ ] Confirm how OneDrive copes with a file rewritten once a minute.
 3. [ ] Test the digest check by deliberately corrupting a local table.
