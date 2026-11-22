@@ -8,6 +8,8 @@ You only edit `app/`. Everything under `framework/`, `masters/` and `.github/` b
 
 ## 1. Create a project
 
+If you were given a project that already exists, skip to the key step below.
+
 From a clone of the framework repository:
 
 ```sh
@@ -25,7 +27,7 @@ git add -A
 git commit -m "Create my-app"
 ```
 
-The project has its own checks. They need a public signing key to build the app; any key will do for a local check:
+The project has its own checks. They need a public signing key to build the app; any key will do for a local check. Set it once in each new terminal, before `npm run ci`, `npm run build` or `npm run two-users`:
 
 ```sh
 export TRELLIS_PUBLIC_KEY="$(npm run --silent keygen | sed -n 's/^TRELLIS_PUBLIC_KEY=//p')"
@@ -64,7 +66,7 @@ Add your table next to it. Each field has a kind, which decides what happens whe
 
 `latest` and `ask` take a `type` of `"string"`, `"number"` or `"boolean"`, written `{ kind: "latest", type: "number" }`. A bare `"latest"` or `"ask"` is untyped. Every record also has an `id` (a string, made for you) and `deleted`; don't declare fields with those names, or a table called `users`, which the framework keeps for itself.
 
-Table names are letters, digits and hyphens. Start each table at `version: 1`. When you later change a table's fields, raise its version and add a step under `migrations` in the same file: `migrations: { items: { 1: (record) => ({ ...record, priority: 0 }) } }` takes `items` records from version 1 to 2.
+Table names are letters, digits and hyphens. Start each new table at `version: 1`; it needs no `migrations`. When you later change a table's fields, raise its version and add a step under `migrations` in the same file: `migrations: { items: { 1: (record) => ({ ...record, priority: 0 }) } }` takes `items` records from version 1 to 2.
 
 Row types come from this file, so after a change `npm run typecheck` tells you where a screen uses a field that no longer exists.
 
@@ -113,9 +115,13 @@ This assumes a `people` table with a `name` field of kind `latest`, type `string
 
 **Reading.** `useRecords(table, query?)` returns the table's rows and re-renders when they change, here or on a colleague's computer. The query takes `where` (an object of field values, or a function) and `sort` (a field name, `{ by, dir: "desc" }`, or a compare function). `useRecord(table, id)` returns one row. `useField(table, id, field)` returns `{ value, conflict }` for one field.
 
-**Writing.** `useCommand(name)` returns a function that runs a command on this computer at once; the change reaches everyone else through the folder. The built-in commands are `records.create` (`{ table, fields }`, returns the new id), `records.update` (`{ table, id, fields }`), `records.remove` and `records.restore` (`{ table, id }`). A command never throws: it returns `{ ok: true, value }` or `{ ok: false, ... }`, and the shell reports failures.
+**Writing.** `useCommand(name)` returns a function that runs a command on this computer at once; the change reaches everyone else through the folder. The built-in commands are `records.create` (`{ table, fields }`, returns the new id), `records.update` (`{ table, id, fields }`), `records.remove` and `records.restore` (`{ table, id }`). A command never throws: it returns `{ ok: true, value }` or `{ ok: false, code, error }`. A value of the wrong type, or a field the table doesn't declare, is refused with code `invalid` and nothing is written. Ranges and other rules are up to your screen.
 
-**Conflicts.** When two people set an `ask` field at the same time, the shell shows both values and asks which to keep. The screen does nothing for this.
+Every kind is written the same way: pass the field's whole new value. For a `text` field, pass the whole new text, as the example does for `notes`; the framework works out what changed and merges it with other people's edits.
+
+A field nobody has set yet is `undefined`, so show it with a default such as `item.owner ?? ""`.
+
+**Conflicts.** When two people set an `ask` field at the same time, the shell shows both values and asks which to keep. The first value set is not a conflict. The screen does nothing for this.
 
 **Showing the screen.** Put it inside `<TrellisApp>` in `app/src/main.tsx`, next to or instead of the example screen:
 
@@ -138,7 +144,9 @@ Then run the checks again:
 npm run ci
 ```
 
-**The two-user test.** `npm run two-users` builds the app, opens it as two users on one folder in a headless browser, and checks that their edits to the example `items` screen meet. It runs in the project's GitHub workflow. It needs Playwright once: `npm install --no-save playwright && npx playwright install chromium`. It drives the example screen, so keep `items` and `ItemsScreen` while you rely on it.
+Its tests include one per table in `app/app.config.ts`: a record one user creates, with a value in every field, must reach a second user through a shared folder. A new table is covered as soon as you declare it, with no test to write.
+
+**The two-user test.** `npm run two-users` builds the app, opens it as two users on one folder in a headless browser, and checks that their edits to the example `items` screen meet. It runs in the project's GitHub workflow. It needs Playwright once: `npm install --no-save playwright && npx playwright install chromium`. It drives the example screen, so keep `items` and `ItemsScreen` while you rely on it. Your own tables are covered by the per-table test in `npm run ci`.
 
 ## 4. Invite a user
 
