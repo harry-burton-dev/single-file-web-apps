@@ -237,10 +237,9 @@ export function createRunner(deps: RunnerDeps): Runner {
       }
     }
     for (const table of new Set(changes.map((c) => c.table))) {
-      const stored = registry.table(table).schemaVersion();
-      const supported = registry.def(table).version;
-      if (typeof stored === "number" && stored > supported) {
-        return { code: "schema-too-new", error: `${table} is stored at schema version ${stored}, newer than this app understands (${supported}); nothing was written` };
+      const status = registry.status(table);
+      if (!status.writable) {
+        return { code: "schema-too-new", error: `${table}: ${status.message} (stored at schema version ${status.storedVersion}, this app supports ${status.supportedVersion}); nothing was written` };
       }
     }
     return null;
