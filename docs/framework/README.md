@@ -28,8 +28,8 @@ They never edit engine, loader, host, identity or release code, and no business 
 | Keys | Workspace keyring from the admin page; users enrol from an invite and unlock a passport at each launch (TR3) | `framework/runtime/identity/`; `framework/runtime/admin/` |
 | Identity | From the invite, kept in the user's passport; `users` is a framework table (TR3) | `framework/runtime/identity/passport.js`, `admin.js` |
 | App | An engine test page with one shared note | `workbench/src/app/app.tsx` |
-| Schema versions | Stored per device and read; no migration path | `sync-engine/src/records/keys.js`, `table.js` |
-| Backups | Folder named in ADR-0005; nothing writes it | no match for "backups" in source |
+| Schema versions | Each table's version and migrations are declared in `app/app.config.ts`; migrations run per record as it is read and written back by command; an older app refuses to write a table stored at a higher version and says so, and other tables keep working (S5) | `framework/engine/src/records/table.js`, `framework/data/registry.ts`; `framework/engine/test/records/versions.test.js`, `framework/data/test/migrations.test.js` |
+| Backups | The admin page backs up every table to `backups/<stamp>/`, downloads it as one zip, and restores that zip with the key backup into an empty folder (S5) | `framework/runtime/backup/`, `framework/runtime/admin/`; `framework/runtime/test/backup/`, step 6 of `npm run smoke` |
 | Open engine faults | None; all 29 probes pass and run in CI (S5) | `npm run probes` in `.github/workflows/ci.yml` and `release.yml` |
 
 ## 3. Rubric: what "bootstrap state" means
@@ -46,7 +46,7 @@ Each gate is pass or fail and is checked by a command, not by opinion. v0.1.0 sh
 | G6 Real keys | No fixed key in the build; data written by one invited user is readable by another and unreadable without an invite | Automated test with two users and one outsider. **Passed** (TR3): `framework/runtime/test/identity/g6.test.js`, `npm run check:no-test-key` in CI |
 | G7 Two users converge | Two browser contexts on one folder, both edit, both end with the same data | Headless test using the example app, from built files opened from disk |
 | G8 Signed update end to end | Version N running; release N+1 placed in the folder; app offers it, loads it; a forged N+2 is refused | Extends the existing smoke test |
-| G9 Survives loss | Backup then restore into an empty folder reproduces all data; a newer-schema table opened by an older app is refused with a message, not corrupted | Automated tests |
+| G9 Survives loss **(passed, S5)** | Backup then restore into an empty folder reproduces all data; a newer-schema table opened by an older app is refused with a message, not corrupted | Automated tests. Passed: `framework/runtime/test/backup/backup.test.js` (byte-equal JSON after restore), `framework/data/test/migrations.test.js` (older app refused), and step 6 of `npm run smoke` from built files opened from disk |
 | G10 Engine faults closed **(passed, S5)** | P14a, P14b and P15 pass and all probes run in CI | `npm run probes` exit 0 in CI |
 | G11 Size budgets | Bootstrap under 50 KB; framework plus example app bundle under 500 KB | Build step fails over budget |
 | G12 Cold start | A fresh agent given only `docs/quickstart.md` and the created project adds a second table and a screen that syncs, without editing framework folders | Run once before release; transcript and diff recorded in the release notes |

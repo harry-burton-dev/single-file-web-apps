@@ -47,6 +47,7 @@ Everything is bundled; nothing is fetched from the network at run time. No WebAs
   data/  status/  backups/
 ```
 
+- **`backups/`** holds one folder per backup, `backups/<UTC stamp>/<table>.ywb`, written only by the admin page's "Back up now" (ADR-0001 section 8). "Download backup" gives the same folder as one zip, `backup-<stamp>.zip`, to keep away from the shared folder; the admin page restores it into an empty folder together with the key backup.
 - **Bundles are write-once**, with the version in the file name. They are never rewritten.
 - **`manifest.json` is the only file that changes.** It is one file holding a body and a signature over that body, so the two can never be out of step.
 

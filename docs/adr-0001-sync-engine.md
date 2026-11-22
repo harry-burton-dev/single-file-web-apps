@@ -133,6 +133,12 @@ No read position is stored, unlike Tonsky's design. Every adapter's updates are 
 
 - **Backup:** a full snapshot of each table as a `.ywb` file under `backups/`. Restoring is placing a snapshot in a fresh folder.
 
+*As built (TR5, OUT-45 and OUT-48).* The engine itself does not write backups, so a device still writes only its own paths (P8); `framework/runtime/backup/backup.js` does it from outside.
+
+- **Back up now** (admin page) writes `backups/<UTC stamp>/<table>.ywb`: one sealed snapshot per table, in the usual `.ywb` envelope with the current key and `meta.kind` `"backup"`. A second backup in the same second takes the next free stamp; nothing is overwritten. There are no scheduled backups in v0.1.0.
+- **Download backup** packs that folder as one store-only zip, `backup-<stamp>.zip`, with entries `<stamp>/<table>.ywb`.
+- **Restore into an empty folder** (admin page, on a folder with no `workspace.json`) asks for the key backup, its passphrase and the zip. It refuses a folder that already has `data/`, and reads and decrypts the whole zip before writing anything. It then puts each snapshot in the admin page's local store, starts an engine on the folder and calls `reseed()`, so the folder's only data is a fresh snapshot with fresh coverage written by the admin page's device. `workspace.json` is written from the key backup last. The restoring device's local store must hold nothing for those tables. No new file format.
+
 **Compaction is part of the design, not optional.** Every session starts a new chunk per table touched, so three devices and ten tables can produce several thousand small files a year. That slows OneDrive and the first load on a new device.
 
 *Snapshots*

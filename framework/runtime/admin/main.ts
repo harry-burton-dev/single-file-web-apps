@@ -7,25 +7,29 @@
 // and the engine's local state, so it and the app can be open together.
 import { loadFolder, pickFolder, regrant, type FolderState } from "../host/folder";
 import { openDb, type KeyValueDb } from "../host/idb";
-import { startHost } from "../host/host";
+import { startHost, restoreHost, engineTables } from "../host/host";
 import type { Engine } from "../host/engine-types";
 import { appNames } from "../names";
 import { openTable } from "../../engine/src/records/index.js";
 import { KeyFileError } from "../identity/keyfile.js";
 import { workspaceFileFor } from "../identity/workspace.js";
 import { newKeyring, rotateKeyring, userIdFor, mintInvite, exportBackup, engineKeys, USERS_TABLE, USERS_SCHEMA, putUser } from "../identity/admin.js";
-import { readWorkspace, writeWorkspace, openKeyring, AdminError, backupFileName, inviteFileName } from "./actions.js";
+import { writeBackup, packBackup, BackupError } from "../backup/backup.js";
+import { readWorkspace, writeWorkspace, openKeyring, restoreWorkspace, AdminError, backupFileName, inviteFileName, backupZipName } from "./actions.js";
 
 type Keyring = { workspace: string; current: number; keys: { id: number; raw: Uint8Array }[] };
 type UserFields = { name: string; role: string; status: string };
 type UsersTable = { list(): { id: string; fields: UserFields }[] };
 type Unreadable = { path: string; error?: { name: string; message: string } };
-type Session = { root: FileSystemDirectoryHandle; keyring: Keyring; engine: Engine; users: UsersTable; stop: () => Promise<void> };
+type EngineKeys = { key: CryptoKey; keyId: number; keys: Map<number, CryptoKey> };
+/** backup: what writeBackup needs besides the folder and the engine. */
+type Session = { root: FileSystemDirectoryHandle; keyring: Keyring; engine: Engine; users: UsersTable; backup: { keys: EngineKeys; tables: Record<string, string>; adapters: Record<string, unknown>; clock: { now(): number } }; stop: () => Promise<void> };
 
 const names = appNames(__APP_DEFINITION__);
 // The engine writes as the admin page, not as a person: the backup holds no user.
 const ENGINE_USER = "admin";
 const REFRESH_MS = 2000;
+const ALREADY_OPEN = "The admin page is already open in another tab. Use that tab, or close it and try again.";
 const REMOVAL_NOTE = "Removing a user means rotating the key and giving every remaining user a new invite.";
 const random = { bytes: (n: number) => crypto.getRandomValues(new Uint8Array(n)), float: () => crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32 };
 
@@ -59,13 +63,13 @@ function act(button: HTMLButtonElement, run: () => Promise<void>): void {
   button.addEventListener("click", () => {
     button.disabled = true;
     run()
-      .catch((error: unknown) => say(error instanceof KeyFileError || error instanceof AdminError ? error.message : error instanceof Error ? `${error.name}: ${error.message}` : String(error)))
+      .catch((error: unknown) => say(error instanceof KeyFileError || error instanceof AdminError || error instanceof BackupError ? error.message : error instanceof Error ? `${error.name}: ${error.message}` : String(error)))
       .finally(() => (button.disabled = false));
   });
 }
 
-function fileUrl(text: string): string {
-  return URL.createObjectURL(new Blob([text], { type: "application/json" }));
+function fileUrl(content: string | Uint8Array, type = "application/json"): string {
+  return URL.createObjectURL(new Blob([content as BlobPart], { type }));
 }
 
 /** A link the admin clicks to save a file; `onSaved` runs on that click. */
@@ -76,8 +80,8 @@ function downloadLink(id: string, fileName: string, text: string, onSaved: () =>
 }
 
 /** Saves a file straight away, for files that can be made again (invites, extra backups). */
-function download(fileName: string, text: string): void {
-  const link = el("a", { href: fileUrl(text), download: fileName });
+function download(fileName: string, content: string | Uint8Array, type?: string): void {
+  const link = el("a", { href: fileUrl(content, type), download: fileName });
   document.body.append(link);
   link.click();
   link.remove();
@@ -153,7 +157,50 @@ function createScreen(db: KeyValueDb, root: FileSystemDirectoryHandle): void {
     ...labelled(again, "The passphrase again"),
     create,
     step,
+    ...restoreForm(db, root),
   );
+}
+
+// ---- restore ----
+
+/** "Restore into an empty folder": the key backup, its passphrase and a downloaded backup file. */
+function restoreForm(db: KeyValueDb, root: FileSystemDirectoryHandle): HTMLElement[] {
+  const keyFile = el("input", { id: "admin-restore-key", type: "file", accept: ".json,application/json" });
+  const pass = field("admin-restore-pass", "Key backup passphrase", "password");
+  const backupFile = el("input", { id: "admin-restore-file", type: "file", accept: ".zip,application/zip" });
+  const restore = el("button", { id: "admin-restore" }, "Restore into an empty folder");
+  act(restore, async () => {
+    const key = keyFile.files?.[0];
+    const backup = backupFile.files?.[0];
+    if (!key) throw new Error("Choose the key backup file.");
+    if (!backup) throw new Error("Choose the backup file.");
+    try {
+      const { keyring } = await restoreWorkspace({
+        root,
+        text: await key.text(),
+        passphrase: pass.value,
+        file: new Uint8Array(await backup.arrayBuffer()),
+        random,
+        restore: async (keyring: Keyring, folder: FileSystemDirectoryHandle, file: Uint8Array) => {
+          const done = await restoreHost({ root: folder, db, user: ENGINE_USER, ...(await engineKeys(keyring)), app: __APP_DEFINITION__ }, file);
+          if (!done.ok) throw new Error(ALREADY_OPEN);
+          return done;
+        },
+      });
+      const session = await startSession(db, root, keyring);
+      if (session) workspaceScreen(db, session, `${backup.name} is restored into "${root.name}".`);
+    } finally {
+      pass.value = "";
+    }
+  });
+  return [
+    el("h2", {}, "Restore into an empty folder"),
+    el("p", {}, "Or restore a downloaded backup here. The folder must have no data in it."),
+    ...labelled(keyFile, "Key backup"),
+    ...labelled(pass, "Its passphrase"),
+    ...labelled(backupFile, "Backup file (.zip)"),
+    restore,
+  ];
 }
 
 // ---- open ----
@@ -198,13 +245,14 @@ function openScreen(db: KeyValueDb, root: FileSystemDirectoryHandle, workspaceTe
 // ---- the open workspace ----
 
 async function startSession(db: KeyValueDb, root: FileSystemDirectoryHandle, keyring: Keyring): Promise<Session | null> {
-  const started = await startHost({ root, db, user: ENGINE_USER, ...(await engineKeys(keyring)), app: __APP_DEFINITION__ });
+  const keys = (await engineKeys(keyring)) as EngineKeys;
+  const started = await startHost({ root, db, user: ENGINE_USER, ...keys, app: __APP_DEFINITION__ });
   if (!started.ok) {
-    say("The admin page is already open in another tab. Use that tab, or close it and try again.");
+    say(ALREADY_OPEN);
     return null;
   }
   const users = openTable({ adapter: undefined, doc: started.engine.table(USERS_TABLE), schema: USERS_SCHEMA, deviceId: started.deviceId, user: ENGINE_USER, clock: { now: () => Date.now() }, migrations: {} }) as unknown as UsersTable;
-  return { root, keyring, engine: started.engine, users, stop: started.stop };
+  return { root, keyring, engine: started.engine, users, backup: { keys, ...engineTables(__APP_DEFINITION__), clock: started.clock }, stop: started.stop };
 }
 
 function workspaceScreen(db: KeyValueDb, session: Session, opening: string): void {
@@ -290,6 +338,22 @@ function workspaceScreen(db: KeyValueDb, session: Session, opening: string): voi
     );
   });
 
+  let stamp: string | null = null;
+  const backUp = el("button", { id: "admin-backup-now" }, "Back up now");
+  const downloadZip = el("button", { id: "admin-download-zip", disabled: true }, "Download backup");
+  act(backUp, async () => {
+    const { keys, tables, adapters, clock } = session.backup;
+    const written = await writeBackup({ root: session.root, engine, tables, adapters, key: keys.key, keyId: keys.keyId, clock, random });
+    stamp = written.stamp;
+    downloadZip.disabled = false;
+    say(`Backup ${stamp} is written: ${written.files.length} files in backups/${stamp}/.`);
+  });
+  act(downloadZip, async () => {
+    if (!stamp) throw new Error("Back up first.");
+    download(backupZipName(stamp), await packBackup({ root: session.root, stamp }), "application/zip");
+    say(`Backup saved as ${backupZipName(stamp)}. Keep it with the key backup: restoring needs both.`);
+  });
+
   window.clearInterval(refreshTimer); // the screen from before a rotation
   refreshTimer = window.setInterval(() => {
     try {
@@ -314,6 +378,10 @@ function workspaceScreen(db: KeyValueDb, session: Session, opening: string): voi
     backupNow,
     rotate,
     keyStep,
+    el("h2", {}, "Backups"),
+    el("p", {}, "Back up now writes an encrypted copy of every table into backups/ in the folder. Download backup gives that copy as one file, to keep away from the folder."),
+    backUp,
+    downloadZip,
     el("h2", {}, "Files that could not be read"),
     problems,
   );
