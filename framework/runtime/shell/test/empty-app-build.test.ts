@@ -30,7 +30,7 @@ test("builds with no tables and no screens, and shows the empty shell", async ()
   document.body.append(element);
   start({ mount: element });
 
-  const shell = await waitFor(() => element.querySelector("#trellis-shell"));
+  const shell = await waitFor(() => element.querySelector("#app-shell"));
   expect(shell.getAttribute("aria-label")).toBe("Empty");
 }, 60_000);
 

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { findTestKey } from "../build/no-test-key.js";
 
 test("finds the old seed or helper name anywhere under the folder, and nothing in a clean one", (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "trellis-no-test-key-"));
+  const dir = mkdtempSync(join(tmpdir(), "no-test-key-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   mkdirSync(join(dir, "app"));
   writeFileSync(join(dir, "bootstrap.html"), "<p>clean</p>");

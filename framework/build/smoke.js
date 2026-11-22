@@ -63,7 +63,7 @@ const bundleName = names.bundleFile(version);
 const nextVersion = version.replace(/\d+$/, (patch) => String(Number(patch) + 1));
 const forgedVersion = version.replace(/\d+$/, (patch) => String(Number(patch) + 2));
 /** The app's shell (OUT-36) is on the page: the bundle ran. */
-const shellShown = (page) => page.locator("#trellis-shell").count().then((n) => n === 1);
+const shellShown = (page) => page.locator("#app-shell").count().then((n) => n === 1);
 
 const newKey = () => subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
 
@@ -566,13 +566,13 @@ const browser = await chromium.launch();
 try {
   const good = await openPage(browser, { "manifest.json": manifest, [bundleName]: bundle });
   await good.page.click("#boot-connect");
-  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  await good.page.waitForSelector("#app-shell", { timeout: 10000 }).catch(() => {});
   check("first run: the signed bundle is verified and the app starts", await shellShown(good.page), `${await heading(good.page)} / ${await good.page.locator("#boot-message").textContent().catch(() => "")}`);
   const shown = await good.page.locator("body").innerText();
   check("the app reports the bundle's version", shown.includes(`Version ${version}`));
 
   await good.page.reload();
-  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  await good.page.waitForSelector("#app-shell", { timeout: 10000 }).catch(() => {});
   check("reload: the app starts from the cache without the folder", await shellShown(good.page), await heading(good.page));
 
   const { bundles } = release;
@@ -582,7 +582,7 @@ try {
   const ready = await pageSays(good.page, `Version ${nextVersion} is ready.`);
   check(`update: ${nextVersion} in the folder is accepted and the page says it is ready`, updated.status === "updated" && updated.version === nextVersion && ready.includes(`Version ${nextVersion} is ready.`), `${JSON.stringify(updated)} / ${ready}`);
   await Promise.all([good.page.waitForEvent("load", { timeout: 10000 }), good.page.getByRole("button", { name: "Load it" }).click({ timeout: 10000 })]).catch(() => {});
-  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  await good.page.waitForSelector("#app-shell", { timeout: 10000 }).catch(() => {});
   check(`update: after "Load it" the app reports ${nextVersion}`, (await shellShown(good.page)) && (await reportsVersion(good.page, nextVersion)), await heading(good.page));
 
   await putFiles(good.page, { "manifest.json": release.forgedUpdate, ...bundleFiles([version, nextVersion, forgedVersion]) });
@@ -590,7 +590,7 @@ try {
   const said = await pageSays(good.page, "not signed");
   check(`forged update: a manifest for ${forgedVersion} signed with another key is refused`, refused.status === "rejected" && refused.code === "signature-invalid" && said.includes("not signed"), `${JSON.stringify(refused)} / ${said}`);
   await good.page.reload();
-  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  await good.page.waitForSelector("#app-shell", { timeout: 10000 }).catch(() => {});
   check(`forged update: after a reload the app still reports ${nextVersion}`, (await shellShown(good.page)) && (await reportsVersion(good.page, nextVersion)), await heading(good.page));
   check("no page errors", good.errors.length === 0, good.errors.join(" | "));
   await good.context.close();

@@ -21,7 +21,7 @@ test("app/package.json lists neither yjs nor a framework-internal path", () => {
 });
 
 test("rejects each kind of bad import", (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "trellis-boundary-"));
+  const dir = mkdtempSync(join(tmpdir(), "boundary-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   mkdirSync(join(dir, "src", "deep"), { recursive: true });
 
@@ -51,7 +51,7 @@ test("rejects each kind of bad import", (t) => {
 });
 
 test("reports the line of a bad import", () => {
-  const dir = mkdtempSync(join(tmpdir(), "trellis-boundary-"));
+  const dir = mkdtempSync(join(tmpdir(), "boundary-"));
   try {
     writeFileSync(join(dir, "a.ts"), `import { a } from "@trellis/framework";\n\nimport { b } from "yjs";\n`);
     const [v] = findViolations(dir, { allowedPackages: ["@trellis/framework"] });

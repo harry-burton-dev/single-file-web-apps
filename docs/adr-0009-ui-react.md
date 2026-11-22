@@ -43,7 +43,7 @@ A plugin is a separate bundle (ADR-0006). If it carried its own copy of React, i
 
 Every plugin view, and every top-level screen, is rendered inside a React error boundary. A view that throws shows a contained error with the plugin's name; the rest of the app keeps working.
 
-**As built (TR4):** one error boundary (`framework/runtime/shell/error-boundary.tsx`) wraps the shell's content, including the app's screens. A screen that throws shows an error screen with the message and, where an engine exists, a button to the diagnostics view. Tests: `error-boundary.test.tsx`, and "an error in the app's screens shows the error screen" in `trellis-app.test.tsx`. Plugin views do not exist yet, so they have no boundary.
+**As built (TR4):** one error boundary (`framework/runtime/shell/error-boundary.tsx`) wraps the shell's content, including the app's screens. A screen that throws shows an error screen with the message and, where an engine exists, a button to the diagnostics view. Tests: `error-boundary.test.tsx`, and "an error in the app's screens shows the error screen" in `app-shell.test.tsx`. Plugin views do not exist yet, so they have no boundary.
 
 ### 4. Language: TypeScript (decided 2026-11-21)
 

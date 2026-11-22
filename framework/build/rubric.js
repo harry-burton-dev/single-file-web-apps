@@ -10,16 +10,15 @@
 //   npm run rubric                      the real gates
 //   node framework/build/rubric.js --gates <file.js>   another list (tests)
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const has = (...files) => () => files.every((f) => existsSync(join(ROOT, f)));
 
 export const gates = [
-  { id: "G1", requirement: "New project: `create` makes a project that installs, typechecks, tests and builds", command: "node --test framework/test/create.test.js", present: has("framework/test/create.test.js") },
-  { id: "G2", requirement: "No leftover names in a created project outside the allowed list", command: "node --test framework/test/create-names.test.js", present: has("framework/test/create-names.test.js") },
+  { id: "G1", requirement: "New project: `create` makes a project that installs, typechecks, tests and builds", command: "node --test framework/build/test/create.test.js" },
+  { id: "G2", requirement: "No leftover names in a created project outside the allowed list", command: "node --test framework/build/test/create-names.test.js" },
   { id: "G3", requirement: "One definition file: names follow app/app.config.ts", command: "node --test framework/runtime/test/naming.test.js framework/runtime/test/build-names.test.js" },
   { id: "G4", requirement: "No business logic in framework folders", command: "node --test framework/runtime/test/empty-app.test.js" },
   { id: "G5", requirement: "Screens import only the framework's public entry", command: "node --test framework/test/boundary.test.js" },

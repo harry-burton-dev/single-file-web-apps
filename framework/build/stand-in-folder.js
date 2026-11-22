@@ -26,11 +26,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSy
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const BINDING = "__trellisStandInFolder";
+const BINDING = "__standInFolder";
 const fail = (name, message) => ({ error: { name, message } });
 
 export async function createStandInFolder() {
-  const base = mkdtempSync(join(tmpdir(), "trellis-stand-in-"));
+  const base = mkdtempSync(join(tmpdir(), "stand-in-"));
   const dir = join(base, "shared");
   mkdirSync(dir);
   let partitioned = false;

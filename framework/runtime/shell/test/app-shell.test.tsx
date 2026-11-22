@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
-import { TrellisApp } from "../trellis-app";
+import { TrellisApp } from "../app-shell";
 import { defaultStrings as s } from "../strings";
 import { KeyFileError } from "../../identity/keyfile.js";
 import { DEVICE, FOLDER, fakeServices, folderHandle, passportHandle, PASSPORT_FILE, USER, type Fakes } from "./helpers/fake-services";
