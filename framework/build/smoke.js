@@ -10,6 +10,9 @@
 //      show their message; IndexedDB holds no key, wrapped or not (OUT-11)
 //   5. the admin page (OUT-10), also from disk: creates a workspace in a
 //      stand-in folder, and reopens it from the downloaded key backup
+//   6. backups (OUT-48): back up, download the backup, refuse to restore into
+//      a folder with data/, restore into a second, empty stand-in folder and
+//      compare the users table there with the original
 //
 // Headless Chrome cannot drive the real folder picker, so the picker is
 // replaced by one that returns an in-page stand-in holding the release files.
@@ -306,10 +309,11 @@ async function openAdmin(browser, files = {}) {
   return { context, page, errors };
 }
 
-/** Clicks and returns the downloaded file's name and text. */
+/** Clicks and returns the downloaded file's name, text and bytes. */
 async function downloadFrom(page, selector) {
   const [download] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.click(selector)]);
-  return { name: download.suggestedFilename(), text: readFileSync(await download.path(), "utf8") };
+  const bytes = readFileSync(await download.path());
+  return { name: download.suggestedFilename(), text: bytes.toString("utf8"), bytes };
 }
 
 const ADMIN_PASS = "the smoke test's backup phrase";
@@ -353,8 +357,18 @@ async function adminSmoke(browser) {
   const paths = Object.keys(folder.files);
   check(`admin: workspace.json is written and matches the backup (${folder.kind})`, keyring && (await checkKeyring(keyring, folder.files["workspace.json"] ?? "")) === "ok", paths.join(", "));
   check("admin: the users table's files are written", paths.some((p) => p.startsWith("data/") && p.includes("users")) && paths.some((p) => p.startsWith("status/")), paths.join(", "));
+
+  await page.click("#admin-backup-now");
+  await page.waitForFunction(() => document.getElementById("admin-message")?.textContent?.startsWith("Backup "), null, { timeout: 10000 }).catch(() => {});
+  const backedUp = Object.keys((await standInFiles(page)).files).filter((p) => p.startsWith("backups/"));
+  check("admin: Back up now writes one file per table under backups/<stamp>/", backedUp.some((p) => /^backups\/\d{8}T\d{6}Z\/users\.ywb$/.test(p)), `${backedUp.join(", ")} / ${await message(page)}`);
+  const zip = await downloadFrom(page, "#admin-download-zip");
+  check("admin: Download backup gives one zip file", /^backup-\d{8}T\d{6}Z\.zip$/.test(zip.name) && zip.bytes.subarray(0, 4).equals(Buffer.from("PK\x03\x04", "latin1")), zip.name);
+  const usersShown = await page.locator("tbody").first().innerText();
   check("admin: no page errors while creating", create.errors.length === 0, create.errors.join(" | "));
   await create.context.close();
+
+  await restoreSmoke(browser, { backup, zip, keyring, usersShown });
 
   // A later session: the folder has a workspace, the admin opens it from the backup.
   const reopen = await openAdmin(browser, { "workspace.json": folder.files["workspace.json"] });
@@ -371,6 +385,38 @@ async function adminSmoke(browser) {
   check("admin: an existing workspace opens from its key backup", shown.includes(keyring?.workspace ?? "?"), `${shown} / ${await message(reopen.page)}`);
   check("admin: no page errors while reopening", reopen.errors.length === 0, reopen.errors.join(" | "));
   await reopen.context.close();
+}
+
+/** Fills in the restore form on an empty folder's first screen and clicks Restore. */
+async function restoreInto(page, { backup, zip }) {
+  await page.waitForSelector("#admin-restore", { timeout: 10000 });
+  await page.setInputFiles("#admin-restore-key", { name: backup.name, mimeType: "application/json", buffer: Buffer.from(backup.text) });
+  await page.fill("#admin-restore-pass", ADMIN_PASS);
+  await page.setInputFiles("#admin-restore-file", { name: zip.name, mimeType: "application/zip", buffer: zip.bytes });
+  await page.click("#admin-restore");
+}
+
+/** Step 6: restore is refused where data/ exists, and works into a second, empty folder. */
+async function restoreSmoke(browser, { backup, zip, keyring, usersShown }) {
+  const refused = await openAdmin(browser, { "data/users/someone/x.ywb": "" });
+  await restoreInto(refused.page, { backup, zip });
+  await refused.page.waitForFunction(() => document.getElementById("admin-message")?.textContent !== "", null, { timeout: 30000 }).catch(() => {});
+  const said = await message(refused.page);
+  const left = await standInFiles(refused.page);
+  check("restore: a folder that has data/ is refused in words", said === "This folder already has a data/ folder. Restore only into an empty folder." && !("workspace.json" in left.files), said);
+  await refused.context.close();
+
+  const restore = await openAdmin(browser);
+  await restoreInto(restore.page, { backup, zip });
+  await restore.page.waitForSelector("#admin-workspace", { timeout: 30000 }).catch(() => {});
+  const shown = await restore.page.locator("tbody").first().innerText().catch(() => "");
+  check("restore: the users table in the second folder matches the original", shown === usersShown && /Harry/.test(shown) && /Sam/.test(shown), `${JSON.stringify(shown)} vs ${JSON.stringify(usersShown)} / ${await message(restore.page)}`);
+  await restore.page.waitForTimeout(1500); // a tick, so the status file is written
+  const folder = await standInFiles(restore.page);
+  const paths = Object.keys(folder.files);
+  check(`restore: workspace.json and the table files are written (${folder.kind})`, keyring && (await checkKeyring(keyring, folder.files["workspace.json"] ?? "")) === "ok" && paths.some((p) => p.startsWith("data/") && p.includes("users")), paths.join(", "));
+  check("restore: no page errors", restore.errors.length === 0, restore.errors.join(" | "));
+  await restore.context.close();
 }
 
 const checks = [];

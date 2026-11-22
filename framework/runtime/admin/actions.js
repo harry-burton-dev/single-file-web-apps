@@ -1,12 +1,13 @@
 // The admin page's steps that touch the folder or a key file (OUT-10). No DOM,
 // so they are tested in Node; the page (main.ts) wires them to its screens.
 import { openKeyFile } from "../identity/keyfile.js";
-import { checkKeyring, WORKSPACE_FILE } from "../identity/workspace.js";
+import { checkKeyring, workspaceFileFor, WORKSPACE_FILE } from "../identity/workspace.js";
 
 const MESSAGES = {
   "other-workspace": "This key file is for a different workspace.",
   "out-of-date": "This key file is out of date: the workspace has a newer key. Use the latest key backup.",
   "bad-workspace": "The workspace file in this folder is damaged. You can rewrite it from this key file.",
+  "has-workspace": "This folder already has a workspace. Restore only into an empty folder.",
 };
 
 export class AdminError extends Error {
@@ -20,6 +21,7 @@ export class AdminError extends Error {
 
 export const backupFileName = (keyring) => `workspace-key-${keyring.current}.keybackup.json`;
 export const inviteFileName = (userId) => `${userId}.invite.json`;
+export const backupZipName = (stamp) => `backup-${stamp}.zip`;
 
 const describe = (error) => (error instanceof Error ? `${error.name}: ${error.message}` : String(error));
 
@@ -65,4 +67,20 @@ export async function openKeyring({ text, passphrase, workspaceText }) {
   if (check === "bad-file") throw new AdminError("bad-workspace", keyring);
   if (check !== "ok") throw new AdminError(check);
   return { keyring, from };
+}
+
+/**
+ * "Restore into an empty folder" (OUT-48): opens the key backup, has restore
+ * (keyring, root, file) put the backup's tables into the folder as this
+ * device (the page passes the host's restoreHost), and only then writes
+ * workspace.json, so a refused restore leaves the folder as it was.
+ * Throws KeyFileError, AdminError, or the restore's BackupError.
+ */
+export async function restoreWorkspace({ root, text, passphrase, file, restore, random }) {
+  const { workspace, current, keys } = await openKeyFile({ text, passphrase, kind: "key-backup" });
+  const keyring = { workspace, current, keys };
+  if ((await readWorkspace(root)).status !== "missing") throw new AdminError("has-workspace");
+  const { tables } = await restore(keyring, root, file);
+  await writeWorkspace(root, await workspaceFileFor(keyring, { random }));
+  return { keyring, tables };
 }
