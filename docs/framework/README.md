@@ -30,7 +30,7 @@ They never edit engine, loader, host, identity or release code, and no business 
 | App | An engine test page with one shared note | `workbench/src/app/app.tsx` |
 | Schema versions | Stored per device and read; no migration path | `sync-engine/src/records/keys.js`, `table.js` |
 | Backups | Folder named in ADR-0005; nothing writes it | no match for "backups" in source |
-| Open engine faults | 3 probes fail | `npm run probes`: P14a, P14b, P15 |
+| Open engine faults | None; all 29 probes pass and run in CI (S5) | `npm run probes` in `.github/workflows/ci.yml` and `release.yml` |
 
 ## 3. Rubric: what "bootstrap state" means
 
@@ -47,7 +47,7 @@ Each gate is pass or fail and is checked by a command, not by opinion. v0.1.0 sh
 | G7 Two users converge | Two browser contexts on one folder, both edit, both end with the same data | Headless test using the example app, from built files opened from disk |
 | G8 Signed update end to end | Version N running; release N+1 placed in the folder; app offers it, loads it; a forged N+2 is refused | Extends the existing smoke test |
 | G9 Survives loss | Backup then restore into an empty folder reproduces all data; a newer-schema table opened by an older app is refused with a message, not corrupted | Automated tests |
-| G10 Engine faults closed | P14a, P14b and P15 pass and all probes run in CI | `npm run probes` exit 0 in CI |
+| G10 Engine faults closed **(passed, S5)** | P14a, P14b and P15 pass and all probes run in CI | `npm run probes` exit 0 in CI |
 | G11 Size budgets | Bootstrap under 50 KB; framework plus example app bundle under 500 KB | Build step fails over budget |
 | G12 Cold start | A fresh agent given only `docs/quickstart.md` and the created project adds a second table and a screen that syncs, without editing framework folders | Run once before release; transcript and diff recorded in the release notes |
 | G13 Tag makes a release | Pushing `v0.1.0` publishes the zip, and unzipped into a folder it passes G7 | The release workflow run itself |
