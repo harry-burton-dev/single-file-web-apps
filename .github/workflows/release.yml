@@ -1,9 +1,12 @@
 name: Release
 # Push a tag like v1.2.0 to publish a GitHub Release holding <id>-1.2.0.zip:
 # the app's release folder (bootstrap, app bundle, signed manifest) ready to copy
-# into the shared folder. The id, name and folder come from app/app.config.ts,
-# through the release step's outputs. Needs the repository variable
-# TRELLIS_PUBLIC_KEY and the secret TRELLIS_SIGNING_KEY (see framework/build/keygen.js).
+# into the shared folder, and manifest.json on its own. The next release
+# downloads that manifest.json and lists its bundles again, so a rollback is
+# only a new manifest (npm run release -- --rollback <version>). The id, name
+# and folder come from app/app.config.ts, through the release step's outputs.
+# Needs the repository variable TRELLIS_PUBLIC_KEY and the secret
+# TRELLIS_SIGNING_KEY (see framework/build/keygen.js).
 on:
   push:
     tags: ["v*"]
@@ -32,12 +35,26 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           npm run smoke
+      - name: Fetch the previous manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view --json tagName > /dev/null 2>&1; then
+            gh release download --pattern manifest.json --dir dist/previous
+          else
+            echo "No earlier release: this is the first."
+          fi
       - name: Build and sign the release
         id: release
         env:
           TRELLIS_PUBLIC_KEY: ${{ vars.TRELLIS_PUBLIC_KEY }}
           TRELLIS_SIGNING_KEY: ${{ secrets.TRELLIS_SIGNING_KEY }}
-        run: npm run release
+        run: |
+          if [ -f dist/previous/manifest.json ]; then
+            npm run release -- --previous dist/previous/manifest.json
+          else
+            npm run release
+          fi
       - name: Zip the release folder
         env:
           FOLDER: ${{ steps.release.outputs.folder }}
@@ -46,6 +63,7 @@ jobs:
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          FOLDER: ${{ steps.release.outputs.folder }}
           ZIP: ${{ steps.release.outputs.zip }}
           TITLE: ${{ steps.release.outputs.title }}
-        run: gh release create "$GITHUB_REF_NAME" "dist/release/$ZIP" --title "$TITLE" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "dist/release/$ZIP" "dist/release/$FOLDER/app/manifest.json" --title "$TITLE" --generate-notes
