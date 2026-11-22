@@ -6,7 +6,7 @@ New here? Start with the [quick start](quickstart.md).
 
 ## Quick start
 
-[Quick start](quickstart.md): from a new project to a second table and a screen that syncs.
+[Quickstart](quickstart.md): create a project, declare a table, write a screen, invite a user, release.
 
 ## Guides
 

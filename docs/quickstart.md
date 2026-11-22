@@ -1,146 +1,108 @@
-# Quick start
+# Quickstart
 
-This page takes you from a new project to a second table and a screen that syncs between two people. It takes about fifteen minutes.
+An app made with this framework runs from a shared folder (OneDrive, Dropbox, a network drive) with no server. You describe its tables in one file and write React screens. Sync, encryption, sign-in by invite, signed updates and the app shell are already done.
 
-An app built on the framework is a page that people open from a shared folder. There is no server. The framework already does sync, encryption, sign-in, updates and the app shell. You describe your tables and write your screens.
+You need Node 22.18 or later, git, and Chrome or Edge (the app uses the browser's folder access, which other browsers lack).
 
-**You will learn**
+You only edit `app/`. Everything under `framework/`, `masters/` and `.github/` belongs to the framework: leave it as it is.
 
-- How to create a project
-- How to declare a table and its fields
-- How to write a screen that reads with hooks and writes with commands
-- How to run the app with a real workspace, and invite a second person
-- How to ship a signed release
+## 1. Create a project
 
-## Before you start
+If you were given a project that already exists, its last commit is your starting point: skip to the key step below.
 
-You need:
-
-- Node 22.18 or later, and git
-- Chrome or Edge. The app reads and writes a folder you choose, and other browsers do not allow that.
-- A folder to share. To try things out, any empty folder on your computer works. For a team, use a folder that a sync tool such as OneDrive keeps on everyone's computer.
-
-## Create a project
-
-A project is made from a copy of the framework's repository. In that copy, run:
+From a clone of the framework repository:
 
 ```sh
+npm ci
 npm run create -- my-app
+cd ../my-app
 ```
 
-The name must be lower-case letters, digits and single hyphens. The command writes a new folder, `my-app`, beside the one you ran it in. It sets the app's id to `my-app` and its name to `My App`, starts a fresh git repository, installs the packages, and runs the new project's own checks. It finishes with:
+`create` copies the framework into a new folder beside the clone (use `--dir <parent>` to put it elsewhere), names it `my-app`, starts a fresh git repository with no commits, installs, and runs the project's checks once. The name is lower-case letters, digits and single hyphens.
 
-```text
-npm run ci passed in /path/to/my-app
+Make the first commit, so that `git diff` shows your own changes from here on:
+
+```sh
+git add -A
+git commit -m "Create my-app"
 ```
 
-Add `--dir <folder>` to put the project somewhere else.
+The project has its own checks. They need a public signing key to build the app; any key will do for a local check. Set it once in each new terminal, before `npm run ci`, `npm run build` or `npm run two-users`:
 
-Everything from here on happens inside `my-app`. You work in two places:
+```sh
+export TRELLIS_PUBLIC_KEY="$(npm run --silent keygen | sed -n 's/^TRELLIS_PUBLIC_KEY=//p')"
+npm run ci
+```
 
-| Path | What it holds |
-|---|---|
-| `app/app.config.ts` | The app's id, name, tables and fields. The one definition file. |
-| `app/src/` | Your screens and commands. |
+`npm run ci` installs, typechecks, runs the tests and builds. It is the same script the project's GitHub workflow runs.
 
-The `framework/` folder is the framework itself. You do not edit it, and your code imports only from `@trellis/framework`.
+Taking later framework fixes is a manual copy in v0.1.0: copy the framework's `framework/` and `masters/` folders over your project's and run `npm run ci`.
 
-## Declare a table
+## 2. Declare a table
 
-The project starts with one table, `items`. Add a second one, `contacts`, to `app/app.config.ts`:
+Every table lives in `app/app.config.ts`, the project's one definition file. It also holds the app's `id` and `name`, which name the page title, the local database and the release files. A new project has one example table, `items`:
 
-```ts
-// app/app.config.ts
-import type { AppDefinition } from "@trellis/framework";
-
-const config = {
-  id: "my-app",
-  name: "My App",
-  tables: {
-    items: {
-      version: 1,
-      fields: {
-        title: { kind: "latest", type: "string" },
-        done: { kind: "latest", type: "boolean" },
-        notes: "text",
-        owner: { kind: "ask", type: "string" },
-      },
-    },
-    contacts: {
-      version: 1,
-      fields: {
-        fullName: { kind: "latest", type: "string" },
-        phone: { kind: "ask", type: "string" },
-        notes: "text",
-      },
+```ts fragment
+tables: {
+  items: {
+    version: 1,
+    fields: {
+      title: { kind: "latest", type: "string" },
+      done: { kind: "latest", type: "boolean" },
+      notes: "text",
+      owner: { kind: "ask", type: "string" },
     },
   },
-} satisfies AppDefinition;
-
-export default config;
-
-declare module "@trellis/framework" {
-  interface Register {
-    config: typeof config;
-  }
-}
+},
 ```
 
-Each field has a kind. The kind says what happens when two people change the field at the same time:
+Add your table next to it. Each field has a kind, which decides what happens when two people change it at the same time:
 
-| Kind | When two people edit at once | Use it for |
+| Kind | Two edits at once | Use for |
 |---|---|---|
-| `latest` | One value wins. | Most fields. |
-| `ask` | Both values are kept until someone picks one. | Fields where a silent wrong answer costs something. |
-| `text` | The edits are merged, character by character. | Notes and other prose. |
+| `latest` | the later edit wins | most fields |
+| `text` | both edits are merged, character by character | notes, descriptions |
+| `ask` | both people are shown both values and one is kept | fields where losing an edit matters |
 
-Keep your own `id` and `name` at the top of the file. The `declare module` block at the end is what gives your screens typed rows. Leave it as it is.
+`latest` and `ask` take a `type` of `"string"`, `"number"` or `"boolean"`, written `{ kind: "latest", type: "number" }`. A bare `"latest"` or `"ask"` is untyped: it accepts any value except `undefined`, and its row type is `unknown`, so prefer a typed field. Every record also has an `id` (a string, made for you) and `deleted`; don't declare fields with those names, or a table called `users`, which the framework keeps for itself.
 
-> **Pitfall**
->
-> Do not call a field `name`. A test in the project fails for any table or field name that the framework's own code also uses as a quoted word, and `name` is one. See [Known limits](explanation/limits.md#names-a-test-rejects).
+Table names are letters, digits and hyphens. Start each new table at `version: 1`; it needs no `migrations`. When you later change a table's fields, raise its version and add a step under `migrations` in the same file: `migrations: { items: { 1: (record) => ({ ...record, priority: 0 }) } }` takes `items` records from version 1 to 2.
 
-## Write a screen
+Row types come from this file, so after a change `npm run typecheck` tells you where a screen uses a field that no longer exists.
 
-A screen is a React component. It reads rows with `useRecords` and writes with `useCommand`. Create `app/src/contacts-screen.tsx`:
+## 3. Write a screen
+
+Screens are React components in `app/src/`. They import only from `@trellis/framework`. They read with hooks and write with commands; they never touch files, keys or the folder.
 
 ```tsx
-// app/src/contacts-screen.tsx
+// app/src/people-screen.tsx
 import { useState, type FormEvent } from "react";
 import { Button, useCommand, useRecords } from "@trellis/framework";
 
-const field = "rounded-md border bg-background p-2 text-sm";
-
-export function ContactsScreen() {
-  const contacts = useRecords("contacts", { sort: "fullName" });
+export function PeopleScreen() {
+  const people = useRecords("people", { sort: "name" });
   const create = useCommand("records.create");
   const update = useCommand("records.update");
-  const [fullName, setFullName] = useState("");
+  const remove = useCommand("records.remove");
+  const [name, setName] = useState("");
 
   const add = (e: FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) return;
-    create({ table: "contacts", fields: { fullName: fullName.trim() } });
-    setFullName("");
+    if (name.trim()) create({ table: "people", fields: { name: name.trim() } });
+    setName("");
   };
 
   return (
-    <section aria-label="Contacts" className="flex flex-col gap-3">
+    <section id="people" aria-label="People" className="flex flex-col gap-2">
       <form onSubmit={add} className="flex gap-2">
-        <input aria-label="New contact" placeholder="New contact" className={`flex-1 ${field}`} value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        <input aria-label="New person" className="flex-1 rounded-md border p-2" value={name} onChange={(e) => setName(e.target.value)} />
         <Button type="submit">Add</Button>
       </form>
-      <ul aria-label="Contact list" className="flex flex-col gap-2">
-        {contacts.map((contact) => (
-          <li key={contact.id} className="flex items-center gap-2">
-            <span className="flex-1">{contact.fullName ?? "Unnamed"}</span>
-            <input
-              aria-label={`Phone for ${contact.fullName ?? "Unnamed"}`}
-              placeholder="Phone"
-              className={field}
-              value={contact.phone ?? ""}
-              onChange={(e) => update({ table: "contacts", id: contact.id, fields: { phone: e.target.value } })}
-            />
+      <ul>
+        {people.map((p) => (
+          <li key={p.id} className="flex gap-2">
+            <input aria-label="Name" value={p.name ?? ""} onChange={(e) => update({ table: "people", id: p.id, fields: { name: e.target.value } })} />
+            <Button variant="outline" onClick={() => remove({ table: "people", id: p.id })}>Remove</Button>
           </li>
         ))}
       </ul>
@@ -149,120 +111,88 @@ export function ContactsScreen() {
 }
 ```
 
-Three things to notice:
+This assumes a `people` table with a `name` field of kind `latest`, type `string`.
 
-- `useRecords("contacts")` returns the table's rows and re-renders the screen when they change, whether the change came from this computer or a colleague's.
-- Every field of a row can be `undefined`. Data arrives in pieces, so a screen never assumes a field is there. That is why the name falls back to "Unnamed".
-- The screen never saves. A command writes to this computer at once, and the framework saves to the shared folder in the background.
+**Reading.** `useRecords(table, query?)` returns the table's rows and re-renders when they change, here or on a colleague's computer. The query takes `where` (an object of field values, or a function) and `sort` (a field name, `{ by, dir: "desc" }`, or a compare function). `useRecord(table, id)` returns one row. `useField(table, id, field)` returns `{ value, conflict }` for one field.
 
-To remove a record, run `records.remove` with `{ table, id }`. [Write a command](guides/write-a-command.md) lists every built-in command.
+**Writing.** `useCommand(name)` returns a function that runs a command on this computer at once; the change reaches everyone else through the folder. The built-in commands are `records.create` (`{ table, fields }`, returns the new id), `records.update` (`{ table, id, fields }`), `records.remove` and `records.restore` (`{ table, id }`). A command never throws: it returns `{ ok: true, value }` or `{ ok: false, code, error }`. A value of the wrong type, or a field the table doesn't declare, is refused with code `invalid` and nothing is written. Ranges and other rules are up to your screen.
 
-## Show the screen
+Every kind is written the same way: pass the field's whole new value. For a `text` field, pass the whole new text, as the example does for `notes`; the framework works out what changed and merges it with other people's edits.
 
-The app's entry is `app/src/main.tsx`. Screens are the children of `<TrellisApp>`. Add yours:
+A field nobody has set yet is `undefined`, so show it with a default such as `item.owner ?? ""`.
 
-```tsx
-// app/src/main.tsx
-import { mount, TrellisApp } from "@trellis/framework";
-import config from "../app.config";
-import css from "./index.css?inline";
-import { ContactsScreen } from "./contacts-screen";
-import { ItemsScreen } from "./items-screen";
+**Conflicts.** When two people set an `ask` field at the same time, the shell shows both values and asks which to keep. The first value set is not a conflict. The screen does nothing for this.
 
-export const start = mount(
-  <TrellisApp config={config}>
-    <ItemsScreen />
-    <ContactsScreen />
-  </TrellisApp>,
-  css,
-);
+**Showing the screen.** Put it inside `<TrellisApp>` in `app/src/main.tsx`, next to or instead of the example screen:
+
+```tsx fragment
+<TrellisApp config={config}>
+  <ItemsScreen />
+  <PeopleScreen />
+</TrellisApp>
 ```
 
-`<TrellisApp>` shows everything that comes before your screens: choosing the folder, opening an invite, unlocking. It also shows the sync status, and the prompt that appears when an `ask` field needs a decision.
+`TrellisApp` handles everything before your screens appear: choosing the shared folder, accepting an invite, unlocking the user's passport, and the "already open" message. It also shows the health indicator, the diagnostics menu, the update notice, the conflict prompt and the error screen.
 
-## Check your work
+Style with Tailwind classes. `Button` and `Badge` come from the framework; colours come from the tokens in `app/src/index.css`.
+
+To see the screen while you work, `npm run dev` opens the app in the browser without the loader.
+
+Then run the checks again:
 
 ```sh
-npm run typecheck
-npm test
+npm run ci
 ```
 
-`typecheck` fails if a screen names a table or field that `app.config.ts` does not declare. `npm test` takes a couple of minutes. It includes a check that your code imports only from `@trellis/framework`.
+Its tests include one per table in `app/app.config.ts`: a record one user creates, with a value in every field, must reach a second user through a shared folder. A new table is covered as soon as you declare it, with no test to write.
 
-On Windows, three tests fail that pass on Linux, and `npm test` stops at the first of them. [Known limits](explanation/limits.md#windows) names them and lists the commands to run the rest.
+**The two-user test.** `npm run two-users` builds the app, opens it as two users on one folder in a headless browser, and checks that their edits to the example `items` screen meet. It runs in the project's GitHub workflow. It needs Playwright once: `npm install --no-save playwright && npx playwright install chromium`. It drives the example screen, so keep `items` and `ItemsScreen` while you rely on it. Your own tables are covered by the per-table test in `npm run ci`. Your own screens are checked by the typecheck and the build, not by a browser test: try them with `npm run dev`.
 
-## Run it
+## 4. Invite a user
 
-Start the development server:
+People get into the app with an invite from the admin. The admin page is a single HTML file opened from disk. Build it with:
 
 ```sh
-npm run dev
+npm run build
 ```
 
-The app opens in your browser and asks for the shared folder, then for an invite. A new folder has no workspace yet, so make one first. That is the admin's job, and it is done on the admin page.
+It is `dist/admin.html` (and every release carries a copy, section 5). Open it in Chrome or Edge, then:
 
-1. Build the admin page. The build needs a signing key, so make one and keep its public half in the project:
+1. **Choose the shared folder.**
+2. The first time, **Create the workspace**: type your name and a key backup passphrase, download the key backup, keep it somewhere safe away from the shared folder, then **Finish**. The key backup and its passphrase are the only way back into the admin page.
+3. Under **Invite a user**, type the person's name and a one-time passphrase, then **Invite**. An invite file is saved. Send the file to the person and the passphrase separately. Invite yourself too, to use the app.
 
-   ```sh
-   npm run keygen
-   ```
+The person opens the app from the shared folder, chooses the folder, picks **I have an invite**, chooses the file, types the invite's passphrase and a passphrase of their own, and saves their passport on their computer. After that they type their passphrase at each launch.
 
-   The command prints two lines. Save the JSON after `TRELLIS_PUBLIC_KEY=` as `app/signing-public-key.json`. Keep the second line, the signing key, out of the project. [Cut a signed release](guides/release.md) says where it goes.
+To remove someone, **Mark inactive**, then **Rotate the key** and give every remaining user a **New invite**.
 
-   ```sh
-   npm run build
-   ```
+## 5. Release
 
-2. Open `dist/admin.html` from disk in Chrome or Edge. Choose your shared folder, then **Create the workspace**. Download the key backup when it is offered and keep it away from the shared folder.
-3. Under **Invite a user**, type a one-time passphrase, then use **New invite** on your own row. The invite file is saved to your downloads.
-4. Go back to the app. Choose the same folder, then **I have an invite**. Give it the invite file and its passphrase, choose your own passphrase, and save your passport somewhere on your computer, not in the shared folder.
+A release is a folder that you copy into the shared folder. Everyone's app checks the folder, offers the new version, and loads it only if its signature matches the key built into their copy.
 
-Your screens appear. Add a contact. The badge at the top reads **Saved** once the change has reached the folder.
+Once per project, make the signing key pair:
 
-To see it sync, invite a second person from the admin page, open the app in a second browser profile, and enrol there with their invite. A contact added in one profile appears in the other, usually within a minute. Give both profiles a different phone number for the same contact while neither has seen the other's change, and the app shows **1 needs a decision**.
+```sh
+npm run keygen
+```
 
-## Ship it
+It prints two lines and writes no file. In the project's GitHub repository, store the first value (after `TRELLIS_PUBLIC_KEY=`) as an Actions **variable** named `TRELLIS_PUBLIC_KEY`, and the second as an Actions **secret** named `TRELLIS_SIGNING_KEY`. Keep a backup of the second somewhere safe and never commit it: whoever holds it can ship code to everyone.
 
-A release is a signed zip that you copy into the shared folder. Your colleagues open one HTML file from that folder, and later releases reach them through the folder too.
+Then push a version tag:
 
-1. In the project's GitHub repository, store the `TRELLIS_PUBLIC_KEY` line as an Actions variable and the `TRELLIS_SIGNING_KEY` line as an Actions secret.
-2. Push a tag:
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
 
-   ```sh
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
+The release workflow runs the tests, builds and signs the release, and publishes a GitHub Release with `<id>-<version>.zip`. Unzip it and copy the folder inside into the shared folder, replacing what is there. It holds:
 
-3. Download `my-app-0.1.0.zip` from the GitHub Release the workflow publishes, and copy what is inside its `My App` folder into the shared folder.
+- `<id>.html`: the app. People open this one.
+- `<id>-admin.html`: the admin page.
+- `app/`: the signed app bundle and its manifest.
 
-[Cut a signed release](guides/release.md) has the details.
+The tag sets the version, so you don't edit a version number anywhere.
 
-## Troubleshooting
+To build the same folder on your own computer instead, with both keys in the environment: `npm run release`. It writes `dist/release/<name>/`.
 
-### `create` stops with "step "npm install" failed (exit Error: spawnSync npm ENOENT)"
-
-This happens on Windows. The project folder is complete by then. Change into it and run `npm install` yourself. See [Known limits](explanation/limits.md#windows).
-
-### "The bootstrap needs the admin's public signing key"
-
-`npm run build` found no key. Set `TRELLIS_PUBLIC_KEY` or add `app/signing-public-key.json`, as in [Run it](#run-it).
-
-### "This folder has no workspace yet. Ask the admin to create one."
-
-The folder you chose has no `workspace.json`. Create the workspace on the admin page first, or choose the folder that has one.
-
-### `npm test` fails with "the example app is under 150 non-blank lines"
-
-The project keeps a test that was written for the example app. It counts the lines under `app/src` and expects the `items` table and its screen. The limit is 150 non-blank lines, and the example uses 80, so a second screen fits and a third may not. Delete `framework/test/app-size.test.js` once the test fails for that reason, not before. It is an exception to the rule that you leave `framework/` alone. See [Known limits](explanation/limits.md#the-example-apps-size-test).
-
-### `npm test` fails with "no table or field name from app.config.ts is quoted in framework source"
-
-One of your table or field names is also a quoted word in the framework's code. The failure lists the names. Rename them. See [Known limits](explanation/limits.md#names-a-test-rejects).
-
-## Next steps
-
-- [Declare a table and field rules](guides/declare-a-table.md)
-- [Write a command](guides/write-a-command.md), for writes that touch more than one record
-- [Handle a conflict](guides/handle-a-conflict.md)
-- [How sync works](explanation/sync.md)
-- [API reference](reference/api.md)
+To roll back to an earlier version, download the latest release's `manifest.json` and run `npm run release -- --rollback 0.1.0 --previous manifest.json`. It writes only a new `app/manifest.json` that points everyone at 0.1.0; copy it into the shared folder's `app/`.

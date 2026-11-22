@@ -57,8 +57,6 @@ The app checks the definition when it starts and stops with a message if a name 
 - A table name uses letters, digits and hyphens. `users` is taken: the framework keeps its own table of that name.
 - A field name starts with a letter and uses letters, digits and `_`. `id` and `deleted` are taken.
 
-A test in the project is stricter than the app: it rejects a name that the framework's own code uses as a quoted word, such as `name`. See [Known limits](../explanation/limits.md#names-a-test-rejects).
-
 ## Choose a kind for each field
 
 The kind decides what happens when two people change the same field before either has seen the other's change.

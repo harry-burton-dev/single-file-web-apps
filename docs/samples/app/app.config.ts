@@ -14,6 +14,13 @@ const config = {
         owner: { kind: "ask", type: "string" },
       },
     },
+    // The table the quickstart's screen assumes.
+    people: {
+      version: 1,
+      fields: {
+        name: { kind: "latest", type: "string" },
+      },
+    },
   },
 } satisfies AppDefinition;
 

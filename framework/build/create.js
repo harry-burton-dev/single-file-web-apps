@@ -25,6 +25,12 @@ const LEFT_OUT = [
   /^epics\//,
   /^framework\/build\/create\.js$/,
   /^framework\/build\/test\/create[^/]*\.test\.js$/,
+  // Checks on the framework's own example app: app-size holds it to 150 lines
+  // (spec S4), and empty-app (G4) refuses its table and field names in
+  // framework source. A project's own app grows past the first and may well
+  // use a field name such as "name" that the framework also quotes.
+  /^framework\/test\/app-size\.test\.js$/,
+  /^framework\/runtime\/test\/empty-app\.test\.js$/,
 ];
 
 const titleCase = (id) => id.split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");

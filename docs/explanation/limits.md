@@ -31,33 +31,8 @@ What the framework does not do, and what has not been proven. Read this before y
 - **The signing key lives in GitHub.** Whoever can push a tag to the project's repository can ship code to every colleague.
 - **One release channel.** Every user gets the same version. There is no beta channel.
 - **No plugins.**
-- **Framework fixes are copied by hand.** A project keeps its own copy of the `framework/` folder. To take a later fix, copy the folder from a newer version of the framework's repository. Nothing does this for you.
+- **Framework fixes are copied by hand.** A project keeps its own copy of the `framework/` and `masters/` folders. To take a later fix, copy both from a newer version of the framework's repository over your project's, then run `npm run ci`.
 - **No scheduled backups.** A backup exists only when the admin makes one.
-
-## The example app's size test
-
-A project keeps `framework/test/app-size.test.js`. It was written for the example app, and it does two things: it fails once the files under `app/src` and `app/app.config.ts` reach 150 non-blank lines, and it expects the `items` table and its screen to exist.
-
-A real app outgrows both. Delete the file when it does. Nothing else depends on it.
-
-## Names a test rejects
-
-A project keeps `framework/runtime/test/empty-app.test.js`. One of its tests fails if any table or field name in `app/app.config.ts` also appears as a quoted word in the framework's own code. In the framework's repository that test proves the framework knows nothing about the example app. In your project it rejects ordinary names.
-
-`name` is the common one. The failure lists each name and the file it was found in:
-
-```text
-framework/package.json: name
-framework/runtime/names.ts: name
-```
-
-Rename the field, for example to `fullName`. The names used in these docs all pass.
-
-There is no list of rejected words. To check your names in a few seconds, without the whole test run:
-
-```sh
-node --test framework/runtime/test/empty-app.test.js
-```
 
 ## Windows
 

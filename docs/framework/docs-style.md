@@ -24,7 +24,7 @@ A page belongs to one folder. If a guide starts explaining, link to an explanati
 
 ## Structure
 
-7. The quickstart and guides open with one or two sentences, then a "You will learn" list of three to six items where the page teaches more than one thing.
+7. Guides open with one or two sentences, then a "You will learn" list of three to six items where the page teaches more than one thing.
 8. Sentence-case headings. H2 and H3 only.
 9. Reference headings are the name in code font, one name per heading. The export check depends on this.
 10. Guides end with "Next steps": one to three links.
@@ -36,7 +36,7 @@ A page belongs to one folder. If a guide starts explaining, link to an explanati
 13. Show the file name as the first line of a complete file, as a comment: `// app/src/contacts-screen.tsx`.
 14. After the sample, say what to notice.
 15. Mark wrong and right code with comments inside the block.
-16. Every `ts` and `tsx` sample must compile. A block that shows a declaration's shape is marked `ts signature` and is not compiled.
+16. Every `ts` and `tsx` sample must compile. A block that shows a declaration's shape is marked `ts signature`, and a block that shows part of a file is marked `ts fragment` or `tsx fragment`; neither is compiled. Prefer whole files.
 17. Commands go in `sh` blocks. Output goes in `text` blocks and is copied from a real run.
 
 ## Callouts
@@ -55,7 +55,6 @@ A page belongs to one folder. If a guide starts explaining, link to an explanati
 23. Do not link from the user docs to `docs/framework/` or the ADRs. A created project does not have them.
 24. Where the code and an ADR disagree, the docs follow the code.
 25. Samples compile against `docs/samples/app`, a copy of the example app, and not against `app/`. A created project's app changes; the docs' samples must still compile there.
-26. Do not use a table or field name in a sample that is a quoted word in framework source, such as `name`. A created project keeps `framework/runtime/test/empty-app.test.js`, which rejects it.
 
 ## What checks this
 

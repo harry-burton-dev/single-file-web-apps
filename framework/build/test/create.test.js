@@ -40,7 +40,9 @@ test("the copy has its own names, version 0.1.0, and no framework docs or histor
   assert.equal(json(join(target, "package.json")).version, "0.1.0");
   assert.equal(json(join(target, "app/package.json")).name, "demo-app-app");
   assert.equal(json(join(target, "app/package.json")).version, "0.1.0");
-  for (const gone of ["docs/framework", "docs/sync-engine-test-spec.md", "docs/adr-0001-sync-engine.md", "epics", "node_modules", "dist"]) {
+  // Two checks on the framework's own example app stay behind: app-size holds it to 150 lines,
+  // and empty-app (G4) refuses any of its table or field names, such as "name", in framework source.
+  for (const gone of ["docs/framework", "docs/sync-engine-test-spec.md", "docs/adr-0001-sync-engine.md", "epics", "node_modules", "dist", "framework/test/app-size.test.js", "framework/runtime/test/empty-app.test.js"]) {
     assert.ok(!existsSync(join(target, gone)), `${gone} should not be copied`);
   }
   const docs = existsSync(join(target, "docs")) ? readdirSync(join(target, "docs")) : [];

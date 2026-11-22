@@ -11,8 +11,9 @@
 // file; otherwise it is a module of its own. Each page is checked as a copy of
 // docs/samples/app (the example app the docs describe) with the page's files
 // laid over it, so a page that shows a new app/app.config.ts gets its own row
-// types, and a project's own app can change without breaking the docs. A block marked `ts signature`
-// shows a declaration's shape and is not compiled.
+// types, and a project's own app can change without breaking the docs. A block
+// marked `ts signature` (a declaration's shape) or `ts fragment` (part of a
+// file) is not compiled.
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -129,7 +130,7 @@ export function samplesOf(markdown) {
     .filter((block) => block.lang === "ts" || block.lang === "tsx")
     .map((block) => {
       const named = block.code.split("\n")[0].match(NAMED_FILE);
-      const skipped = block.info.split(/\s+/).includes("signature");
+      const skipped = block.info.split(/\s+/).some((word) => word === "signature" || word === "fragment");
       const path = named ? named[1] : `app/src/sample-${++n}.${block.lang}`;
       return { ...block, path, skipped };
     });
