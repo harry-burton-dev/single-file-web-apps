@@ -1,9 +1,15 @@
-// From-disk smoke test (ADR-0005 section 8, step 3). Builds the bootstrap and
-// the app bundle with a throwaway signing key, lays out a release folder, and
-// opens the bootstrap page from disk (file://) in headless Chrome:
+// From-disk smoke test (ADR-0005 section 8, step 3; gate G8). Builds the
+// bootstrap and the app bundle with a throwaway signing key, and the bundle a
+// second time at the next version (N+1) with the same key, lays out a release
+// folder, and opens the bootstrap page from disk (file://) in headless Chrome:
 //
-//   1. first run: connect the folder, the signed bundle is verified and the app starts
-//   2. reload: the app starts from the browser's cache, no folder needed
+//   1. first run: connect the folder, the signed bundle N is verified and the app starts
+//   2. reload: the app starts from the browser's cache, no folder needed;
+//      then an update: N+1 and its signed manifest are put in the folder while
+//      N runs, the update check accepts it, the page says it is ready, and
+//      after "Load it" the app reports N+1; then a forged update: a manifest
+//      for N+2 signed with another key is put in the folder, the check
+//      refuses it, and after a reload N+1 still runs; no page errors in all of it
 //   3. a manifest signed with another key is refused and nothing runs
 //   4. enrol from an invite made here, reload, unlock with the passphrase; a
 //      wrong passphrase, another workspace and an out-of-date passport each
@@ -16,8 +22,18 @@
 //
 // Headless Chrome cannot drive the real folder picker, so the picker is
 // replaced by one that returns an in-page stand-in holding the release files.
-// Reading a real folder handle is therefore NOT covered here; hashing,
-// signature checks, the IndexedDB cache and running the bundle are real.
+// The test writes into that stand-in while the page is open, as a sync client
+// would write into the real folder. Reading a real folder handle is therefore
+// NOT covered here; hashing, signature checks, the IndexedDB cache, the update
+// notice and running the bundle are real.
+//
+// In step 2 the update check is triggered from the test by calling the
+// checkForUpdate the bootstrap hands to the bundle (the loader contract), so
+// the test does not wait for the 15-minute recheck. To reach it, the test wraps
+// the module URL the bootstrap imports so that start() also records its
+// services; the bundle itself is the real build. The app's own call to
+// checkForUpdate, made once its host is running on a writable folder, is not
+// exercised there.
 // Needs Playwright with Chromium installed. Exit code 1 on any failed check.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
@@ -25,6 +41,7 @@ import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "vite";
 import { sha256Hex, signManifest } from "../runtime/loader/manifest.js";
 import { sealKeyFile } from "../runtime/identity/keyfile.js";
 import { workspaceFileFor, checkKeyring } from "../runtime/identity/workspace.js";
@@ -32,6 +49,7 @@ import { newKeyring, rotateKeyring, openBackup } from "../runtime/identity/admin
 import { enrol } from "../runtime/identity/passport.js";
 import { appNames } from "../runtime/names.ts";
 import definition from "./app-definition.js";
+import { appConfig } from "./vite.config.js";
 
 const { chromium } = createRequire(import.meta.url)("playwright");
 const { subtle } = webcrypto;
@@ -42,6 +60,8 @@ const RELEASE = join(DIST, "smoke-release");
 const version = JSON.parse(readFileSync(join(ROOT, "app", "package.json"), "utf8")).version;
 const names = appNames(definition);
 const bundleName = names.bundleFile(version);
+const nextVersion = version.replace(/\d+$/, (patch) => String(Number(patch) + 1));
+const forgedVersion = version.replace(/\d+$/, (patch) => String(Number(patch) + 2));
 /** The app's shell (OUT-36) is on the page: the bundle ran. */
 const shellShown = (page) => page.locator("#trellis-shell").count().then((n) => n === 1);
 
@@ -63,17 +83,45 @@ async function buildRelease() {
   const body = { format: 1, serial: 1, channels: { stable: version }, bundles: { [version]: { file: bundleName, sha256: await sha256Hex(bundle, subtle), minBootstrap: 1 } } };
   const manifest = await signManifest({ body, privateKey: admin.privateKey, subtle });
   writeFileSync(join(RELEASE, "app", "manifest.json"), manifest);
-  const forged = await signManifest({ body, privateKey: (await newKey()).privateKey, subtle });
-  return { bundle, manifest, forged };
+  const other = await newKey();
+  const forged = await signManifest({ body, privateKey: other.privateKey, subtle });
+
+  // N+1, built through Vite's API so the version need not be edited in app/package.json.
+  const nextDir = join(DIST, "smoke-next");
+  await build({ configFile: false, logLevel: "warn", mode: "app", ...appConfig({ definition, version: nextVersion, mode: "app", outDir: nextDir }) });
+  const bundles = { [version]: bundle, [nextVersion]: readFileSync(join(nextDir, "app", names.bundleFile(nextVersion))) };
+  // N+2 is never built: the forged manifest is refused before its bundle is read,
+  // so N+1's bytes stand in for it and the hash in that manifest is correct.
+  bundles[forgedVersion] = bundles[nextVersion];
+  const manifestFor = async (serial, versions, privateKey) => {
+    const listed = {};
+    for (const v of versions) listed[v] = { file: names.bundleFile(v), sha256: await sha256Hex(bundles[v], subtle), minBootstrap: 1 };
+    return signManifest({ body: { format: 1, serial, channels: { stable: versions.at(-1) }, bundles: listed }, privateKey, subtle });
+  };
+  const update = await manifestFor(2, [version, nextVersion], admin.privateKey);
+  const forgedUpdate = await manifestFor(3, [version, nextVersion, forgedVersion], other.privateKey);
+  return { bundle, manifest, forged, bundles, update, forgedUpdate };
 }
 
 /**
  * Runs in the page before its own scripts: the folder picker returns an
- * in-page folder holding these files (read-only: app/<name>). Such an object
- * cannot be kept in IndexedDB as a real handle can, so the page's attempt to
- * remember it stores nothing instead.
+ * in-page folder holding these files (read-only to the page: app/<name>). Such
+ * an object cannot be kept in IndexedDB as a real handle can, so the page's
+ * attempt to remember it stores nothing instead. Each load starts from these
+ * files; the test adds more with window.__smokeFolder.put.
+ *
+ * It also wraps the bundle's module URL so that start() records the services
+ * the bootstrap passes (window.__smokeServices). The bootstrap's only
+ * JavaScript Blob is the bundle it runs.
  */
 function fakePicker({ files }) {
+  const create = URL.createObjectURL;
+  URL.createObjectURL = function (blob) {
+    const url = create.call(URL, blob);
+    if (!(blob instanceof Blob) || blob.type !== "text/javascript") return url;
+    const wrapper = `import * as bundle from ${JSON.stringify(url)};\nexport function start(services) { window.__smokeServices = services; return bundle.start(services); }`;
+    return create.call(URL, new Blob([wrapper], { type: "text/javascript" }));
+  };
   const missing = () => { throw new DOMException("not found", "NotFoundError"); };
   const fileHandle = (base64) => ({
     kind: "file",
@@ -82,6 +130,7 @@ function fakePicker({ files }) {
   const app = { kind: "directory", name: "app", getFileHandle: async (name) => (name in files ? fileHandle(files[name]) : missing()) };
   const root = { kind: "directory", name: "smoke-folder", fake: true, getDirectoryHandle: async (name) => (name === "app" ? app : missing()) };
   window.showDirectoryPicker = async () => root;
+  window.__smokeFolder = { root, put: (more) => void Object.assign(files, more) };
   const put = IDBObjectStore.prototype.put;
   IDBObjectStore.prototype.put = function (value, key) {
     return put.call(this, value?.fake ? undefined : value, key);
@@ -426,6 +475,20 @@ const check = (name, ok, detail = "") => {
 };
 const heading = (page) => page.locator("h1").first().textContent({ timeout: 10000 }).catch((err) => `(${err.message.split("\n")[0]})`);
 
+const base64 = (files) => Object.fromEntries(Object.entries(files).map(([name, bytes]) => [name, Buffer.from(bytes).toString("base64")]));
+/** Put files into the page's folder stand-in, as a sync client would. */
+const putFiles = (page, files) => page.evaluate((encoded) => window.__smokeFolder.put(encoded), base64(files)).catch((err) => console.log(`     could not write to the folder: ${err.message.split("\n")[0]}`));
+/** Run the update check the bootstrap gave the bundle, on the folder stand-in. */
+const checkNow = (page) => page.evaluate(() => window.__smokeServices.checkForUpdate(window.__smokeFolder.root)).catch((err) => ({ status: "error", message: err.message.split("\n")[0] }));
+/** Waits for `text` anywhere on the page (the shell's notice or the bootstrap's) and returns the page's text. */
+const pageSays = async (page, text) => {
+  await page.waitForFunction((t) => document.body.innerText.includes(t), text, { timeout: 10000 }).catch(() => {});
+  return page.locator("body").innerText();
+};
+/** The page shows `v` and the bootstrap started the bundle as `v` (N+2's stand-in bytes show N+1). */
+const reportsVersion = async (page, v) =>
+  (await page.locator("body").innerText()).includes(`Version ${v},`) && (await page.evaluate(() => window.__smokeServices?.version ?? null)) === v;
+
 const OWN_PASS = "my own passport passphrase";
 
 /** Step 4: enrol from an invite made here, reload, unlock; each refusal shows its message; no key in IndexedDB. */
@@ -497,7 +560,8 @@ async function passportRun(browser) {
   await context.close();
 }
 
-const { bundle, manifest, forged } = await buildRelease();
+const release = await buildRelease();
+const { bundle, manifest, forged } = release;
 const browser = await chromium.launch();
 try {
   const good = await openPage(browser, { "manifest.json": manifest, [bundleName]: bundle });
@@ -510,6 +574,24 @@ try {
   await good.page.reload();
   await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
   check("reload: the app starts from the cache without the folder", await shellShown(good.page), await heading(good.page));
+
+  const { bundles } = release;
+  const bundleFiles = (versions) => Object.fromEntries(versions.map((v) => [names.bundleFile(v), bundles[v]]));
+  await putFiles(good.page, { "manifest.json": release.update, ...bundleFiles([version, nextVersion]) });
+  const updated = await checkNow(good.page);
+  const ready = await pageSays(good.page, `Version ${nextVersion} is ready.`);
+  check(`update: ${nextVersion} in the folder is accepted and the page says it is ready`, updated.status === "updated" && updated.version === nextVersion && ready.includes(`Version ${nextVersion} is ready.`), `${JSON.stringify(updated)} / ${ready}`);
+  await Promise.all([good.page.waitForEvent("load", { timeout: 10000 }), good.page.getByRole("button", { name: "Load it" }).click({ timeout: 10000 })]).catch(() => {});
+  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  check(`update: after "Load it" the app reports ${nextVersion}`, (await shellShown(good.page)) && (await reportsVersion(good.page, nextVersion)), await heading(good.page));
+
+  await putFiles(good.page, { "manifest.json": release.forgedUpdate, ...bundleFiles([version, nextVersion, forgedVersion]) });
+  const refused = await checkNow(good.page);
+  const said = await pageSays(good.page, "not signed");
+  check(`forged update: a manifest for ${forgedVersion} signed with another key is refused`, refused.status === "rejected" && refused.code === "signature-invalid" && said.includes("not signed"), `${JSON.stringify(refused)} / ${said}`);
+  await good.page.reload();
+  await good.page.waitForSelector("#trellis-shell", { timeout: 10000 }).catch(() => {});
+  check(`forged update: after a reload the app still reports ${nextVersion}`, (await shellShown(good.page)) && (await reportsVersion(good.page, nextVersion)), await heading(good.page));
   check("no page errors", good.errors.length === 0, good.errors.join(" | "));
   await good.context.close();
 
