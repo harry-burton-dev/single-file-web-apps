@@ -42,7 +42,7 @@ Taking later framework fixes is a manual copy in v0.1.0: copy the framework's `f
 
 Every table lives in `app/app.config.ts`, the project's one definition file. It also holds the app's `id` and `name`, which name the page title, the local database and the release files. A new project has one example table, `items`:
 
-```ts
+```ts fragment
 tables: {
   items: {
     version: 1,
@@ -125,7 +125,7 @@ A field nobody has set yet is `undefined`, so show it with a default such as `it
 
 **Showing the screen.** Put it inside `<TrellisApp>` in `app/src/main.tsx`, next to or instead of the example screen:
 
-```tsx
+```tsx fragment
 <TrellisApp config={config}>
   <ItemsScreen />
   <PeopleScreen />
