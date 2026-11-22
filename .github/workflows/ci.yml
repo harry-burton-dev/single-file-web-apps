@@ -27,3 +27,8 @@ jobs:
           npm run build
       - name: No fixed test key in the build
         run: npm run check:no-test-key
+      - name: Two-user test from built files (G7)
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          npm run two-users
